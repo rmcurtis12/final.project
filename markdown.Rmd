@@ -10,6 +10,7 @@ output: html_document
 2. KNN model
 3. SVM model
 4. ANN model
+5. Ensemble prediction
 
 
 #1. Data cleaning & preparation 
@@ -88,7 +89,7 @@ y<-as.data.frame(lapply(sdclean[69], normalize))
 z<- x-y
 ```
 
-Normarize variables
+Normalize variables
 ```{r}
 #age difference
 a<-data.frame(lapply(sdclean[70], normalize))
@@ -131,11 +132,11 @@ data_train_knn<-data_train[-1]
 data_test_knn<-data_test[-1]
 
 #Develop KNN Model
-data_pred<-knn(train=data_train_knn, test=data_test_knn, cl=data_train_label, k=44)
+knn_data_pred<-knn(train=data_train_knn, test=data_test_knn, cl=data_train_label, k=44)
 
 #Inspect model accuracy
 library(gmodels)
-CrossTable(x=data_test_label,y=data_pred,prop.chisq = FALSE)
+CrossTable(x=data_test_label,y=knn_data_pred,prop.chisq = FALSE)
 
 #88.8% accuracy in the previous model run 
 ```
@@ -147,13 +148,56 @@ library(kernlab)
 
 #Develop SVM model
 data_classifier <- ksvm(match ~ ., data = data_train, kernel = "vanilladot")
-data_pred <- predict(data_classifier, data_test)
-data_pred <- ifelse(data_pred>0.5, 1, 0)
+svm_data_pred <- predict(data_classifier, data_test)
+svm_data_pred <- ifelse(data_pred>0.5, 1, 0)
 
 #Inspect model accuracy
-table(data_pred, data_test$match)
-agreement <- data_pred == data_test$match
+table(svm_data_pred, data_test$match)
+agreement <- svm_data_pred == data_test$match
 table(agreement)
 prop.table(table(agreement))
 
 #89.9% accuracy in the previous model run
+```
+
+#4. ANN Mode: The model accuracy is XXX%
+```{r}
+library(neuralnet)
+library(class)
+
+#remove response from dataset
+data_train_ann <- data_train[-1]
+
+#create list of columns separated by "+" for neuralnet formula
+n_train <- names(data_train_ann)
+ANN_f <- as.formula(paste("match ~", paste(n_train, collapse = " + ")))
+
+#run neuralnet
+train_ann <- neuralnet(formula = ANN_f, data = data_train, lifesign = "full", hidden = 5)
+
+#apply train_ann model to test data
+model_results_ann <- compute(train_ann, data_test[-1])
+
+#stats of match test predictions
+summary(model_results_ann$net.result)
+
+#set cut-off for match to 3rd quartile (0.2016975), just to pick something less arbitrary than 0.5
+ann_predicted_match <- ifelse(model_results_ann$net.result > 0.2016975, 1, 0)
+
+#how did we do?
+ann_output <- CrossTable(x = data_test_label, y = ann_predicted_match, 
+           prop.chisq=FALSE)
+
+#pretty awful!
+
+```
+
+
+#5. Create Ensemble Model
+```{r}
+
+
+
+```
+
+
