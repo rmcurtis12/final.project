@@ -9,19 +9,62 @@ output: html_document
 1. Data cleaning & preparation 
 2. KNN model
 3. SVM model
+<<<<<<< HEAD
 4. ANN model
 5. Model accuracy
 6. Ensemble prediction
+=======
+4. Random Forest
+5. ANN model
+6. Model Accuracy
+7. Create Ensemble Model
+>>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 
 
 #1. Data cleaning & preparation 
+
+Import library
+```{r}
+rm(list = ls())
+#install.packages("party")
+# install.packages("beepr")
+# install.packages("caret")
+# install.packages("ada")
+#install.packages("e1071")
+#install.packages("multcomp")
+#install.packages("party")
+
+library(multcomp)
+library(party)
+library(plyr)
+library(dplyr)
+library(class)
+library(gmodels)
+library(stats)
+library(magrittr)
+library(beepr)
+library(caret)
+library(kernlab)
+library(neuralnet)
+library(randomForest)
+library(ada)
+library(C50)
+
+```
+
+Aux functions
+```{r}
+
+midbeep <- function() {beepr::beep("coin")}
+endbeep <- function() {beepr::beep("complete")}
+```
 
 Data cleaning
 ```{r setup, include=FALSE}
 speed <- read.csv("Speed Dating Data.csv")
 speed$condtn <- as.factor(speed$condtn)
 speed$gender <- as.factor(speed$gender)
-#speed$match <- as.factor(speed$match)
+speed$match <- as.factor(speed$match)
 speed$field_cd <- as.factor(speed$field_cd)
 levels(speed$field_cd) <- c("Law","Math","SocScie/Psych", "MedSci", "Engineering", "English", "History", "Business", "Education", "Bio","SocialWork","Undergrad", "PoliSci", "Film","FineArts","Lang","Architecture","Other")
 speed$race <- as.factor(speed$race)
@@ -37,7 +80,7 @@ levels(speed$go_out) <- c("SVRL/Week","2/Week","1/Week","2/Month", "1/Month", "S
 speed$career_c <-as.factor(speed$career_c)
 levels(speed$career_c) <- c("Lawyer","Academic/Research","Psychologist","DocMed", "Engineer", "Entertainment", "Banking/Consulting", "RealEstate","IntlAffairs","Undecided","SocialWork","SpeechPath","Politics", "ProSports", "Other", "Journalism", "Architecture")
 speed$race_o <-as.factor(speed$race_o) 
-speed$dec_o <- as.factor(speed$dec_o)
+#speed$dec_o <- as.factor(speed$dec_o)
 #speed$samerace <- as.factor(speed$samerace)
 
 sd2 <- speed
@@ -61,17 +104,12 @@ sd2 <- sd2[,(1:79)]
 sd2 <- sd2[,-(70:79)] #Removes Post First Date
 sd2 <- sd2[,-52]#exclude expnum
 
-sd2$mn_sat <- speed$mn_sat
-sd2$mn_sat[sd2$mn_sat==""]<-NA
+# sd2$mn_sat <- speed$mn_sat
+# sd2$mn_sat[sd2$mn_sat==""]<-NA
 
 sdrandom <- sd2[sample(nrow(sd2), nrow(sd2)),] #Get a random sample since the data is organized by participant
 
 sdclean <- na.omit(sdrandom) #Remove rows with NA values to create a "clean" set
-```
-
-Overview of cleaned data
-```{r}
-names(sdclean)
 ```
 
 
@@ -81,70 +119,123 @@ normalize<-function(x){
   return((x-min(x))/(max(x)-min(x)))}
 
 #age difference
-sdclean$age_dif<-sdclean$age - sdclean$age_o
+# sdclean$age_dif<-sdclean$age - sdclean$age_o
 
-#intelligence difference between sat score and partner's preference
-x<-data.frame(lapply(sdclean[18], normalize))
-sdclean$mn_sat<-as.numeric(sdclean$mn_sat)
-y<-as.data.frame(lapply(sdclean[69], normalize))
-z<- x-y
+# #intelligence difference between sat score and partner's preference
+# x<-data.frame(lapply(sdclean[18], normalize))
+# sdclean$mn_sat<-as.numeric(sdclean$mn_sat)
+# y<-as.data.frame(lapply(sdclean[69], normalize))
+# z<- x-y
+
+#partner's preference and actual rating
+sdclean$att_dif<-sdclean$pf_o_att - sdclean$attr1_1
+sdclean$sinc_dif<-sdclean$pf_o_sin - sdclean$sinc1_1
+sdclean$intel_dif<-sdclean$pf_o_int - sdclean$intel1_1
+sdclean$fun_dif<-sdclean$pf_o_fun - sdclean$fun1_1
+sdclean$amb_dif<-sdclean$pf_o_amb - sdclean$amb1_1
+sdclean$shar_dif<-sdclean$pf_o_sha - sdclean$shar1_1
+
 ```
 
-Normalize variables
+Normarize variables
 ```{r}
 #age difference
-a<-data.frame(lapply(sdclean[70], normalize))
-sdclean$age_dif<-a$age_dif
+# a<-data.frame(lapply(sdclean[69], normalize))
+# sdclean$age_dif_norm<-a$age_dif
 
 #intelligence difference
-b<-as.data.frame(lapply(z[1], normalize))
-sdclean$intel_dif<-b$intel_o
+# b<-as.data.frame(lapply(z[1], normalize))
+# sdclean$intel_dif<-b$intel_o
 
 #date frequency
-sdclean$date<-as.numeric(sdclean$date)
-c<-data.frame(lapply(sdclean[31], normalize))
-sdclean$date_norm<-c$date
+# sdclean$date<-as.numeric(sdclean$date)
+# c<-data.frame(lapply(sdclean[31], normalize))
+# sdclean$date_norm<-c$date
+
+#partner's preference and actual rating
+d<-data.frame(lapply(sdclean[69], normalize))
+sdclean$att_dif_norm<-d$att_dif
+
+e<-data.frame(lapply(sdclean[70], normalize))
+sdclean$sinc_dif_norm<-e$sinc_dif
+
+f<-data.frame(lapply(sdclean[71], normalize))
+sdclean$intel_dif_norm<-f$intel_dif
+
+g<-data.frame(lapply(sdclean[72], normalize))
+sdclean$fun_dif_norm<-g$fun_dif
+
+h<-data.frame(lapply(sdclean[73], normalize))
+sdclean$amb_dif_norm<-h$amb_dif
+
+i<-data.frame(lapply(sdclean[74], normalize))
+sdclean$shar_dif_norm<-i$shar_dif
+
+#rating of partners by objects (inter-correlation)
+# j<-data.frame(lapply(sdclean[5], normalize))
+# sdclean$int_corr_norm<-j$int_corr
+
 
 ```
 
 Delete unnecessary columns
 ```{r}
-sdfinal <- sdclean[,c(4,6,70:72)]
+sdfinal <- sdclean[,c(4,75:80)]
 str(sdfinal)
 ```
 
 Create train & test data
 ```{r}
 ##Make train and test data
-data_train<-sdfinal[1:1948,]
-data_test<-sdfinal[1949:2436,]
+train_data<-sdfinal[1:4500,]
+test_data<-sdfinal[4501:6499,]
 
 #Make labels for train and test data
-data_train_label<-sdfinal[1:1948,1]
-data_test_label<-sdfinal[1949:2436,1]
+train_data_label<-sdfinal[1:4500,1]
+test_data_label<-sdfinal[4501:6499,1]
+
 ```
 
-#2. KNN Model: The model accuracy is XXX%
+#2. KNN model
 ```{r}
 library(class)
 
 #Delete target variable from train data
-data_train_knn<-data_train[-1]
-data_test_knn<-data_test[-1]
+train_data_knn<-train_data[-1]
+test_data_knn<-test_data[-1]
 
 #Develop KNN Model
+<<<<<<< HEAD
 knn_data_pred<-knn(train=data_train_knn, test=data_test_knn, cl=data_train_label, k=44)
 
 #Inspect model accuracy
 #library(gmodels)
 #CrossTable(x=data_test_label,y=knn_data_pred,prop.chisq = FALSE)
+=======
+>>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 
-#88.8% accuracy in the previous model run 
+run_all_knn_models = F
+
+if (run_all_knn_models) {
+  knn_model_one <- knn(train=train_data_knn, test=test_data_knn, cl=train_data_label, k=5)
+  knn_model_two <- knn(train=train_data_knn, test=test_data_knn, cl=train_data_label, k=10)
+  
+  midbeep()
+  endbeep()
+  save(knn_model_one, file = "knn_model_one.txt")
+  save(knn_model_two, file = "knn_model_two.txt")
+#  save(knn_model_train, file = "knn_model_train.txt") 
+} else {
+  load(file = "knn_model_one.txt")
+  # load(file = "knn_model_train.txt") 
+  load(file = "knn_model_two.txt")
+}
 ```
 
 
-#3. SVM Model: The model accuracy is XXX%
+#3. SVM model 
 ```{r}
+<<<<<<< HEAD
 library(kernlab)
 
 #Develop SVM model
@@ -159,37 +250,144 @@ svm_data_pred <- ifelse(svm_data_pred>0.5, 1, 0)
 #prop.table(table(agreement))
 
 #89.9% accuracy in the previous model run
+=======
+run_all_svm_models = F
+
+if (run_all_svm_models) {
+  svm_model_one <- ksvm(match ~ ., data = train_data, kernel = "vanilladot")
+  svm_model_two <- ksvm(match ~ ., data = train_data, kernel = "rbfdot")
+  midbeep()
+  # svm_model_train decided to error out on us
+  svm_model_train <- caret::train(match ~ ., data = train_data, 
+                                  method = "svmRadialSigma", 
+                                  metric = "Kappa")#, 
+                                  # trcontrol = fitControl)
+  endbeep()
+  save(svm_model_one, file = "svm_model_one.txt")
+  save(svm_model_two, file = "svm_model_two.txt")
+  save(svm_model_train, file = "svm_model_train.txt") 
+} else {
+  load(file = "svm_model_one.txt")
+  # load(file = "svm_model_train.txt") 
+  load(file = "svm_model_two.txt")
+}
+>>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 ```
 
-#4. ANN Mode: The model accuracy is XXX%
+#4. Random Forest
 ```{r}
+<<<<<<< HEAD
 library(neuralnet)
+=======
+run_all_tree_models = F
 
-#remove response from dataset
-data_train_ann <- data_train[-1]
+if (run_all_tree_models) {
+  # Basic Classification Tree
+  tree_model <- ctree(match ~ ., data = train_data, 
+                      control = ctree_control(mincriterion = .99))
+  tree_random_forest <- randomForest(match~., data = train_data)
+  midbeep()
+  # Ada Tree
+  tree_ada <- ada(match~., data = train_data)
+  save(tree_model, file = "tree_model.txt")
+  save(tree_random_forest, file = "tree_random_forest.txt")
+  save(tree_ada, file = "tree_ada.txt")
+} else {
+  load(file = "tree_model.txt")
+  load(file = "tree_random_forest.txt")
+  load(file = "tree_ada.txt")
+}
+```
+>>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 
-#create list of columns separated by "+" for neuralnet formula
-n_train <- names(data_train_ann)
-ANN_f <- as.formula(paste("match ~", paste(n_train, collapse = " + ")))
+#5. ANN model
+```{r}
+data_n <- model.matrix(~. + 0, data = sdfinal)
+nnformula <- colnames(data_n) %>% {as.formula(paste("match ~", paste(.[!. %in% "match"], collapse = " + ")))}
+train_data_indicies <- sample(1:nrow(sdfinal), 
+                              replace = F, 
+                              size = floor(nrow(sdfinal) * 0.8)) 
+data_n_train <- data_n[1:nrow(data_n) %in% train_data_indicies,]
+data_n_test <- data_n[!(1:nrow(data_n) %in% train_data_indicies),]
 
-#run neuralnet
-train_ann <- neuralnet(formula = ANN_f, data = data_train, lifesign = "full", hidden = 5)
+run_all_nn_models = T
 
-#apply train_ann model to test data
-model_results_ann <- compute(train_ann, data_test[-1])
+  if (run_all_nn_models) {
+    # The neural net will not work with the standard telemarketing data
+    neural_model <- neuralnet::neuralnet(formula = as.factor(match), data = train_data)
+    midbeep()
+    neural_model_list <- list()
+    
+    neural_seq <- seq(from = 6, to = 20, by = 4)
+    nn_models_big <- lapply(neural_seq, function(i) {
+      cat("Working on:", i, "\n")
+      return(neuralnet::neuralnet(formula = as.factor(match), 
+                                       data = train_data, 
+                                       hidden = i, 
+                                       stepmax = 1e05))
+      midbeep()
+    })
 
-#stats of match test predictions
-summary(model_results_ann$net.result)
+  neural_model_2 = nn_models_big[[1]]
+  # All of the rest of the neural models blew up
+  save(nn_models_big, file = "nn_models_big")
+  save(neural_model, file = "neural_model.txt")
+  save(neural_model_2, file = "neural_model_2.txt")
+} else {
+  load(file = "neural_model.txt")
+  load(file = "neural_model_2.txt")
+}
+```
 
-#set cut-off for match to 3rd quartile (0.2016975), just to pick something less arbitrary than 0.5
-ann_predicted_match <- ifelse(model_results_ann$net.result > 0.2016975, 1, 0)
+#6. Model Accuracy
+```{r}
+accuracy <- function(predicted, trueval, model, hideoutput = F) {
+  stopifnot(length(predicted) == length(trueval))
+  result <- sum(predicted == trueval) / length(predicted)
+  if (!hideoutput) {cat("Model:", model, "had", result, "accuracy\n")}
+  return(result)
+}
 
+knn_prediction_01 <- knn_model_one
+knn_prediction_02 <- knn_model_two
+
+svm_prediction_01 <- predict(svm_model_one, test_data)
+svm_prediction_02 <- predict(svm_model_two, test_data)
+
+# neuralnet_prediction <- neuralnet::compute(neural_model, telemarketing_n_test[, 1:54])$net.result %>% {ifelse(. > 0.5, "yes", "no")} %>% as.factor()
+# neuralnet_prediction_2 <- neuralnet::compute(neural_model_2, telemarketing_n_test[, 1:54])$net.result %>% {ifelse(. > 0.5, "yes", "no")} %>% as.factor()
+
+tree_prediction <- predict(tree_model, test_data)
+tree_random_forest_prediction <- predict(tree_random_forest, test_data)
+tree_ada_prediction <- predict(tree_ada, test_data)
+```
+
+<<<<<<< HEAD
 #how did we do?
 #ann_output <- CrossTable(x = data_test_label, y = ann_predicted_match, 
            prop.chisq=FALSE)
+=======
+>>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 
-#pretty awful!
+```{r}
+a2 = accuracy(knn_prediction_01, test_data$match, "KNN ONE", TRUE)
+a3 = accuracy(knn_prediction_02, test_data$match, "KNN TWO", TRUE)
+a4 = accuracy(svm_prediction_01, test_data$match, "SVM with Vanilla Kernal", TRUE)
+a5 = accuracy(svm_prediction_02, test_data$match, "SVM Radial Basis Kernal", TRUE)
+# a6 = accuracy(neuralnet_prediction, test_data$match, "Neural Net One Hidden Node", TRUE)
+# a7 = accuracy(neuralnet_prediction_2, test_data$match, "Neural Net Two Hidden Nodes", TRUE)
+a8 = accuracy(tree_prediction, test_data$match, "CTree Regression", TRUE)
+a9 = accuracy(tree_random_forest_prediction, test_data$match, "Random Forest Classification", TRUE)
+a10 = accuracy(tree_ada_prediction, test_data$match, "Ada Boost Classification", TRUE)
 
+acc_predictions = c(a2,a3,a4,a5,a8,a9,a10)
+names = c("KNN ONE", "KNN TWO", "SVM with Vanilla Kernal","SVM Radial Basis Kernal","CTree Regression","Random Forest Classification","Ada Boost Classification")
+
+acc_mat <- data.frame(ModelName = names, accuracy = acc_predictions) %>% print
+```
+
+```{r}
+dotchart(acc_predictions, labels = names, main = "Accuracy of the models", xlab = "Accuracy")
 ```
 
 #5. Model Accuracy
@@ -209,7 +407,11 @@ print(accuracy(ann_predicted_match,data_test_label,"ANN"))
 ```
 
 
+<<<<<<< HEAD
 #6. Create Ensemble Model
+=======
+#7. Create Ensemble Model
+>>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 ```{r}
 
 # Convert all of the feature data to factors....
