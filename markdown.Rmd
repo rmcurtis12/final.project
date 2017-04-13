@@ -6,14 +6,12 @@ output: html_document
 ---
 
 #Table of contents
-1. Data cleaning & preparation 
+1. Data cleaning & preparation
+1.1 Step logit
+1.2 Random forest on variables ID'd by step logit
 2. KNN model
 3. SVM model
-<<<<<<< HEAD
 4. ANN model
-5. Model accuracy
-6. Ensemble prediction
-=======
 4. Random Forest
 5. ANN model
 6. Model Accuracy
@@ -195,6 +193,49 @@ train_data_label<-sdfinal[1:4500,1]
 test_data_label<-sdfinal[4501:6499,1]
 
 ```
+
+#1.1 Step Logit to identify significant prediction variables
+```{r}
+#Working with sdclean data, not sdfinal
+##Make train and test data
+train_data_sdclean<-sdclean[1:4500,]
+test_data_sdclean<-sdclean[4501:6499,]
+
+#str(sdclean)
+
+#Make labels for train and test data
+train_label_sdclean<-sdclean[1:4500,1]
+test_label_sdclean<-sdclean[4501:6499,1]
+
+log_step_f <- colnames(sdclean) %>% 
+    {paste(.[! . %in% "match"], collapse = " + ")} %>% 
+    paste("match ~ ", .) %>% 
+    as.formula()
+
+log_model_step <- glm(match ~ 1, data = train_data_sdclean, family = binomial)
+log_model_step <- step(log_model_step, scope = (log_step_f), direction = "forward")
+  
+summary(log_model_step)
+save(log_model_step,file = "log_model_step.txt")
+
+sig_var = c("prob_o","gender","pf_o_sha","met_o","race","exphappy","sports","attr1_1","pf_o_sin","go_out","fun_o","attr_o","age_o","int_corr","yoga","shar2_1","shopping")
+
+
+```
+
+#1.2 Random forest on significant variables
+```{r}
+ran_for_f <- sig_var %>% 
+    {paste(.[! . %in% "match"], collapse = " + ")} %>% 
+    paste("match ~ ", .) %>% 
+    as.formula()
+
+ran_for_sig_var <- randomForest(formula = ran_for_f, data = train_data_sdclean)
+
+plot(ran_for_sig_var)
+
+```
+
 
 #2. KNN model
 ```{r}
