@@ -225,14 +225,24 @@ sig_var = c("prob_o","gender","pf_o_sha","met_o","race","exphappy","sports","att
 
 #1.2 Random forest on significant variables
 ```{r}
+#create the formula for random forest "match ~ blah + blah + blah..."
 ran_for_f <- sig_var %>% 
     {paste(.[! . %in% "match"], collapse = " + ")} %>% 
     paste("match ~ ", .) %>% 
     as.formula()
 
-ran_for_sig_var <- randomForest(formula = ran_for_f, data = train_data_sdclean)
+#run the RANdom FORest on the SIGnificant VARiables
+ran_for_sig_var <- randomForest(formula = ran_for_f, data = train_data_sdclean, importance=TRUE)
 
 plot(ran_for_sig_var)
+
+summary(ran_for_sig_var)
+
+varImpPlot(ran_for_sig_var,
+           sort = T,
+           main="Variable Importance")
+
+
 
 ```
 
