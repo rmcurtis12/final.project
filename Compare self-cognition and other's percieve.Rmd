@@ -1,0 +1,243 @@
+---
+title: "Compare self-cognition and other's percieve "
+author: "Simeng Zeng"
+date: "4/13/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+###Discription:<br/>
+In this part what I want to do is to compare self-cognition and other's percieve to see (on average) how well do people value themselves. This may be a contributor of being match. So what I will do is to see the distribution and mean of:<br/>
+1. People'self-cognition:attr3_1, sinc3_1, int3_1, fun3_1, amb3_1 <br/>
+2. People think how do others percieve themselves: attr5_1, sinc5_1, int5_1, fun5_1, amb5_1 <br/>
+3. How dating mates score: attr_o, since_o, intel_o, fun_o, amb_o <br/>
+```{r}
+library(dplyr)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(fmsb)
+
+#Data cleaning and create a new dataset
+library(readr)
+speed <- read_csv("~/Desktop/Project2/Speed Dating Data.csv")
+data=speed[,c('iid','gender','attr3_1', 'sinc3_1', 'intel3_1', 'fun3_1', 'amb3_1','attr5_1','sinc5_1', 'intel5_1','fun5_1', 'amb5_1','attr_o', 'sinc_o', 'intel_o', 'fun_o', 'amb_o')]
+
+data.others.yourself.partners <-
+  data %>% 
+  group_by(iid) %>% 
+  summarise(
+    Gender = as.factor(first(gender)),
+    Attractive.Others = as.numeric(first(attr5_1)), 
+    Sincere.Others = as.numeric(first(sinc5_1)), 
+    Intelligent.Others = as.numeric(first(intel5_1)), 
+    Fun.Others = as.numeric(first(fun5_1)), 
+    Ambitious.Others = as.numeric(first(amb5_1)), 
+    Attractive.Yourself = first(attr3_1), 
+    Sincere.Yourself = first(sinc3_1), 
+    Intelligent.Yourself = first(intel3_1), 
+    Fun.Yourself = first(fun3_1), 
+    Ambitious.Yourself = first(amb3_1),
+    Attractive.Partners = mean(attr_o, na.rm = TRUE), 
+    Sincere.Partners = mean(sinc_o, na.rm = TRUE), 
+    Intelligent.Partners = mean(intel_o, na.rm = TRUE), 
+    Fun.Partners = mean(fun_o, na.rm = TRUE), 
+    Ambitious.Partners = mean(amb_o, na.rm = TRUE))
+
+#Preparation
+maxmin=data.frame(
+  Attractive=c(10,0),
+  Sincere=c(10,0),
+  Intelligent=c(10,0),
+  Fun=c(10,0),
+  Ambitious=c(10,0)
+)
+```
+
+###Plot of how people measures themselves:
+```{r}
+#Radar Chart
+data.measure.yourself.mean <-
+  data.others.yourself.partners %>% 
+  filter(!is.na(Attractive.Yourself)) %>%
+  group_by(Gender) %>% 
+  summarise(Attractive = mean(Attractive.Yourself), Sincere = mean(Sincere.Yourself), Intelligent = mean(Intelligent.Yourself), Fun = mean(Fun.Yourself), Ambitious = mean(Ambitious.Yourself))
+
+Yourself=rbind(maxmin,data.measure.yourself.mean[,2:6])
+radarchart(Yourself, axistype=0, seg=5,centerzero = TRUE)
+
+#Distribution Chart
+plot.measure.yourself <- ggplot(data = data.others.yourself.partners) + coord_flip()
+
+plot.measure.yourself.attractive <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Attractive.Yourself)) + labs(y="Attractiveness", x ="Gender", title = "How Attractive Are You?")
+
+plot.measure.yourself.ambitious <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Ambitious.Yourself)) + labs(y="Ambitious", x ="Gender", title = "How Ambitious Are You?")
+
+plot.measure.yourself.sincere <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Sincere.Yourself)) + labs(y="Sincere", x ="Gender", title = "How Sincere Are You?")
+
+plot.measure.yourself.intelligent <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Intelligent.Yourself)) + labs(y="Intelligent", x ="Gender", title = "How Intelligence Are You?")
+
+
+plot.measure.yourself.fun <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Fun.Yourself)) + labs(y="Fun", x ="Gender", title = "How Fun Are You?")
+
+grid.arrange(plot.measure.yourself.attractive, plot.measure.yourself.ambitious, plot.measure.yourself.sincere, plot.measure.yourself.intelligent, plot.measure.yourself.fun, ncol = 1)
+```
+
+###Plot of how partners value:
+```{r}
+#Radar Chart:
+data.measure.partners.mean <-
+  data.others.yourself.partners %>% 
+  group_by(Gender) %>% 
+  summarise(Attractive = mean(Attractive.Partners), Sincere = mean(Sincere.Partners), Intelligent = mean(Intelligent.Partners), Fun = mean(Fun.Partners), Ambitious = mean(Ambitious.Partners))
+
+Partners=rbind(maxmin,data.measure.partners.mean[,2:6])
+radarchart(Partners, axistype=0, seg=5,centerzero = TRUE)
+
+#Distribution Chart:
+plot.measure.partner <- ggplot(data = data.others.yourself.partners) + coord_flip()
+
+plot.measure.partner.attractive <- plot.measure.partner + geom_boxplot(mapping = aes(x = Gender, y = Attractive.Partners)) + labs(y="Attractiveness", x ="Gender", title = "How Attractive Are You for Your Partner?")
+
+plot.measure.partner.ambitious <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Ambitious.Partners)) + labs(y="Ambitious", x ="Gender", title = "How Ambitious Are You for Your Partner?")
+
+plot.measure.partner.sincere <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Sincere.Partners)) + labs(y="Sincere", x ="Gender", title = "How Sincere Are You for Your Partner?")
+
+plot.measure.partner.intelligent <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Intelligent.Partners)) + labs(y="Intelligent", x ="Gender", title = "How Intelligence Are You for Your Partner?")
+
+
+plot.measure.partner.fun <- plot.measure.yourself + geom_boxplot(mapping = aes(x = Gender, y = Fun.Partners)) + labs(y="Fun", x ="Gender", title = "How Fun Are You for Your Partner?")
+
+grid.arrange(plot.measure.partner.attractive, plot.measure.partner.ambitious, plot.measure.partner.sincere, plot.measure.partner.intelligent, plot.measure.partner.fun, ncol = 1)
+```
+
+###Plot what people think other value them:
+```{r}
+data.others.yourself.partners=na.omit(data.others.yourself.partners)
+#Radar Chart:
+data.measure.others.mean <-
+  data.others.yourself.partners %>% 
+  group_by(Gender) %>% 
+  summarise(Attractive = mean(Attractive.Others), Sincere = mean(Sincere.Others), Intelligent = mean(Intelligent.Others), Fun = mean(Fun.Others), Ambitious = mean(Ambitious.Others))
+
+Others=rbind(maxmin,data.measure.others.mean[,2:6])
+radarchart(Others, axistype=0, seg=5,centerzero = TRUE)
+
+#Distribution Chart:
+plot.other.percieve <- ggplot(data = data.others.yourself.partners) +  coord_flip()
+
+plot.other.percieve.attractive <- plot.other.percieve + geom_boxplot(mapping = aes(x = Gender, y = Attractive.Others)) + labs(y="Attractiveness", x ="Gender", title = "How Attractive Are You By Others?")
+
+plot.other.percieve.ambitious <- plot.other.percieve + geom_boxplot(mapping = aes(x = Gender, y = Ambitious.Others)) + labs(y="Ambitious", x ="Gender", title = "How Ambitious Are You By Others?")
+
+plot.other.percieve.sincere <- plot.other.percieve + geom_boxplot(mapping = aes(x = Gender, y = Sincere.Others)) + labs(y="Sincere", x ="Gender", title = "How Sincere Are You By Others?")
+
+plot.other.percieve.intelligent <- plot.other.percieve + geom_boxplot(mapping = aes(x = Gender, y = Intelligent.Others)) + labs(y="Intelligent", x ="Gender", title = "How Intelligence Are You By Others?")
+
+plot.other.percieve.fun <-plot.other.percieve + geom_boxplot(mapping = aes(x = Gender, y = Fun.Others)) + labs(y="Fun", x ="Gender", title = "How Fun Are You By Others?")
+
+grid.arrange(plot.other.percieve.attractive, plot.other.percieve.ambitious, plot.other.percieve.sincere, plot.other.percieve.intelligent, plot.other.percieve.fun, ncol = 1 )
+
+```
+
+###Comparision: <br/>
+1. Is there exist difference on how people view themselves and how they think other will percieve? <br/>
+2. Is there exist difference on how people think other will percieve and partner really think? <br/>
+
+```{r}
+#Create the dataset:difference
+difference <-data.frame(iid=data.others.yourself.partners$iid,
+                        Gender=data.others.yourself.partners$Gender,
+                        Attractive.Yourself.Others=data.others.yourself.partners$Attractive.Yourself-data.others.yourself.partners$Attractive.Others,
+                        Sincere.Yourself.Others=data.others.yourself.partners$Sincere.Yourself-data.others.yourself.partners$Sincere.Others,
+                        Intelligent.Yourself.Others=data.others.yourself.partners$Intelligent.Yourself-data.others.yourself.partners$Intelligent.Others,
+                        Fun.Yourself.Others=data.others.yourself.partners$Fun.Yourself-data.others.yourself.partners$Fun.Others,
+                        Ambitious.Yourself.Others=data.others.yourself.partners$Ambitious.Yourself-data.others.yourself.partners$Ambitious.Others,
+                        Attractive.Others.Partners=data.others.yourself.partners$Attractive.Others-data.others.yourself.partners$Attractive.Partners,
+                        Sincere.Others.Partners=data.others.yourself.partners$Sincere.Others-data.others.yourself.partners$Sincere.Partners,
+                        Intelligent.Others.Partners=data.others.yourself.partners$Intelligent.Others-data.others.yourself.partners$Intelligent.Partners,
+                        Fun.Others.Partners=data.others.yourself.partners$Fun.Others-data.others.yourself.partners$Fun.Partners,
+                        Ambitious.Others.Partners=data.others.yourself.partners$Ambitious.Others-data.others.yourself.partners$Ambitious.Partners
+                        )
+#Preparation
+maxmin.diff=data.frame(
+  Attractive=c(1,0),
+  Sincere=c(1,0),
+  Intelligent=c(1,0),
+  Fun=c(1,0),
+  Ambitious=c(1,0)
+)
+```
+
+###Difference Between Self and Others:
+```{r}
+#Radar Chart:
+data.yourself.others.mean <-
+  difference %>% 
+  group_by(Gender) %>% 
+  summarise(Attractive = mean(Attractive.Yourself.Others), Sincere = mean(Sincere.Yourself.Others), Intelligent = mean(Intelligent.Yourself.Others), Fun = mean(Fun.Yourself.Others), Ambitious = mean(Ambitious.Yourself.Others))
+
+yourself.others=rbind(maxmin.diff,data.yourself.others.mean[,2:6])
+radarchart(yourself.others, axistype=4, seg=5,centerzero = TRUE)
+
+#Distribution Chart:
+plot.measure.yourself.others <- ggplot(data = difference) + coord_flip()
+
+plot.attractive <- plot.measure.yourself.others + geom_boxplot(mapping = aes(x = Gender, y = Attractive.Yourself.Others)) + labs(y="Attractiveness", x ="Gender", title = "Difference Between Self and Others in Attractive?")
+
+plot.ambitious <- plot.measure.yourself.others + geom_boxplot(mapping = aes(x = Gender, y = Ambitious.Yourself.Others)) + labs(y="Ambitious", x ="Gender", title = "Difference Between Self and Others in Ambitious?")
+
+plot.sincere <- plot.measure.yourself.others + geom_boxplot(mapping = aes(x = Gender, y = Sincere.Yourself.Others)) + labs(y="Sincere", x ="Gender", title = "Difference Between Self and Others in Sincere?")
+
+plot.intelligent <- plot.measure.yourself.others + geom_boxplot(mapping = aes(x = Gender, y = Intelligent.Yourself.Others)) + labs(y="Intelligent", x ="Gender", title = "Difference Between Self and Others in Intelligence?")
+
+
+plot.fun <- plot.measure.yourself.others + geom_boxplot(mapping = aes(x = Gender, y = Fun.Yourself.Others)) + labs(y="Fun", x ="Gender", title = "Difference Between Self and Others in Fun?")
+
+grid.arrange(plot.attractive, plot.ambitious, plot.sincere, plot.intelligent, plot.fun, ncol = 1)
+```
+
+###Difference Between Others and Partner:
+```{r}
+#Radar Chart:
+data.others.partners.mean <-
+  difference %>% 
+  group_by(Gender) %>% 
+  summarise(Attractive = mean(Attractive.Others.Partners), Sincere = mean(Sincere.Others.Partners), Intelligent = mean(Intelligent.Others.Partners), Fun = mean(Fun.Others.Partners), Ambitious = mean(Ambitious.Others.Partners))
+
+others.partners=rbind(maxmin.diff,data.others.partners.mean[,2:6])
+radarchart(others.partners, axistype=4, seg=5,centerzero = TRUE)
+
+#Distribution Chart:
+plot.measure.others.partners <- ggplot(data = difference) + coord_flip()
+
+plot.attractive <- plot.measure.others.partners + geom_boxplot(mapping = aes(x = Gender, y = Attractive.Others.Partners)) + labs(y="Attractiveness", x ="Gender", title = "Difference Between Others and Partner in Attractive?")
+
+plot.ambitious <- plot.measure.others.partners + geom_boxplot(mapping = aes(x = Gender, y = Ambitious.Others.Partners)) + labs(y="Ambitious", x ="Gender", title = "Difference Between Others and Partner in Ambitious?")
+
+plot.sincere <- plot.measure.others.partners + geom_boxplot(mapping = aes(x = Gender, y = Sincere.Others.Partners)) + labs(y="Sincere", x ="Gender", title = "Difference Between Others and Partner in Sincere?")
+
+plot.intelligent <- plot.measure.others.partners + geom_boxplot(mapping = aes(x = Gender, y = Intelligent.Others.Partners)) + labs(y="Intelligent", x ="Gender", title = "Difference Between Others and Partner in Intelligence?")
+
+
+plot.fun <- plot.measure.others.partners + geom_boxplot(mapping = aes(x = Gender, y = Fun.Others.Partners)) + labs(y="Fun", x ="Gender", title = "Difference Between Others and Partner in Fun?")
+
+grid.arrange(plot.attractive, plot.ambitious, plot.sincere, plot.intelligent, plot.fun, ncol = 1)
+```
+
+###Will this affact the match rate: use the data of "sdclean" and see the correlation about match and the difference in others and partners
+
+```{r}
+#sdclean$diff.att=ifelse(sdclean$attr3_1-sdclean$attr_o>0,1,0)
+#sdclean$diff.amb=ifelse(sdclean$amb3_1-sdclean$amb_o>0,1,0)
+#sdclean$diff.sinc=ifelse(sdclean$sinc3_1-sdclean$sinc_o>0,1,0)
+#sdclean$diff.intel=ifelse(sdclean$intel3_1-sdclean$intel_o>0,1,0)
+#sdclean$diff.fun=ifelse(sdclean$fun3_1-sdclean$fun_o>0,1,0)
+#corr=cbind(sdclean[,4],sdclean[,69:73])
+#corr$match=as.integer(corr$match)
+#cor(corr)
+
+
+```
