@@ -1,0 +1,177 @@
+---
+title: "Project A: City Bike"
+author: "Takashi Takizawa, Scott Haviland, Simeng Zeng, Robert Curtis"
+date: "2017/4/1"
+output: html_document
+---
+
+#Table of Contents
+1. Introduction
+2. Basic Analysis
+3. Deficit / Surplus of Bikes at Stations
+4. Imbalance Use of Bikes
+5. Conclusion
+<br />
+<br />
+
+#1. Introduction
+As a consulting team, we are trying to solve problems of our client, the CitiBike program, utilizing R and a Big Data. We will use the New York City Bike Sharing Data (https://www.citibikenyc.com/system-data) on July 2016 collected by the client. The client lacks the analytical skills to explore / analyze / visualize the data, so they have called our team.
+
+The summary of the data is shown as below.
+
+```{r}
+library("ggplot2") 
+tripdata<-read.csv("201607-citibike-tripdata.csv")
+str(tripdata)
+```
+<br />
+
+After discussing with the client, we defined two critical problems as below.
+
+(A) Stations running out of bikes is a big problem. Client would want to know which stations are candidates for increasing bike storage capacity.
+(B) Bike maintenance bills are piling up. Client thinks that this is because some bikes are being used a lot more than other bikes. Can you check on  this assumption?
+
+To solve these problems, we first grasp a big picture of the CitiBike program in "2. Basic Analysis". Then, we visualized the data to understand causes of each problem in detail, and developed dynamic models (R Shiny) to enable the client to automatically mointor and analyze the causes in "3. Deficit / Surplus of Bikes at Stations, and 4. Imbalance Use of Bikes". Finally, we propose universal countermeasures to solve the problems in "5. Conclusion".
+<br />
+<br />
+
+
+#2. Basic Analysis
+Before diving into each problem, we developed a dyamic model "CitiBike Ride Starts by Station and Date" to analyzed demand of citi bike users to grasp a big picture of the CitiBike program. 
+
+By inputting a specific day and bike station, the model shows you the number of ride starts on the date at the station on the hourly basis. In addition, it visualizes the number of ride starts on each day of week at the station. As you can see, demand is higher on from Tuesday to Friday than on Saturday to Monday.  
+
+<br />
+<br />
+
+![User Interface of the Tool "CitiBike Ride Starts by Station and Date"](ride starts.png)
+
+<br />
+<br />
+
+#3. Deficit / Surplus of Bikes at Stations (Problem A)
+First, we created a bar chart to see whether and how much there are deficit (more departures than arrivals) and surplus (vice versa) among bike stations. We recognized both severe and moderate deficit / surplus, while the severe deficit / surplus are far less than moderate ones.   
+
+```{r}
+count_dep<-table(tripdata$start.station.id)
+count_arr<-table(tripdata$end.station.id)
+
+n<- intersect(names(count_arr), names(count_dep))
+def_station<- c(count_arr[!(names(count_arr) %in% n)], count_dep[!(names(count_dep) %in% n)], count_arr[n] - count_dep[n])
+
+barplot(def_station, main="(count_arr - count_dep) by station_id", xlab="station_id", ylab="(count_arr - count_dep)")
+```
+<br />
+<br />
+
+Then, we developed a dynamic model to specify name, location, and degree of deficit or surplus of bike stations. This is because countermeasures would be different between severe and moderate cases, so the details are necessary for us to segment bike stations according to the degree of deficit or surplus. 
+
+Model inputs are what kind of data you need (deficit or surplus) and how many stations you want to list up (from 1 to 100). As model outputs, the stations are listed in order of their magnitude of deficit or surplus up to the number you set, and maped out. The following is a picture of user interface of the model. We attached codes for the model named as "app.R".
+
+<br />
+<br />
+
+![User Interface of the Tool "Deficit / Surplus of Bikes at Stations"](deficit surplus.png)
+<br />
+<br />
+<br />
+<br />
+
+In the meantime, you need create "citibike_rearrange.csv" from the original data to run the dynamic model. The syntax is shown as below.
+
+```{r}
+library(readr)
+tripdata <- read_csv("201607-citibike-tripdata.csv")
+
+count_dep<-table(tripdata$`start station id`)
+count_arr<-table(tripdata$`end station id`)
+
+n<- union(names(count_arr), names(count_dep))
+m<- as.numeric(setdiff(names(count_arr),names(count_dep)))
+add=rep(0,times=9)
+names(add)=setdiff(names(count_arr),names(count_dep))
+
+count_dep=append(count_dep,add)
+arr_dep<- c(count_arr[!(names(count_arr) %in% n)], count_dep[!(names(count_dep) %in% n)], count_arr[n] - count_dep[n])
+
+
+station.id=row.names(count_arr)
+
+station.name=rep(1,times=492)
+station.latitude=rep(1,times=492)
+station.longitude=rep(1,times=492)
+i=1;j=1
+for (i in 1:length(station.id)){
+  x=station.id[i]
+  for (j in 1:length(tripdata$`end station id`)){
+    if (tripdata$`end station id`[j]==x){
+      station.name[i]=tripdata$`end station name`[j]
+      station.latitude[i]=tripdata$`end station latitude`[j]
+      station.longitude[i]=tripdata$`end station longitude`[j]
+      break
+    }
+  }
+}
+DS=ifelse(arr_dep<0,"D",ifelse(arr_dep==0,"E","S"))
+info=data.frame(station.id,station.name,station.latitude,station.longitude,arr_dep,DS)
+write.csv(info,file="citibike_rearrange.csv",row.names = FALSE, col.names = FALSE)
+```
+
+<br />
+<br />
+<br />
+<br />
+
+#4. Imbalance of Bike Use (Problem B)
+We first developed a histogram of frequency of bike use, assuming that the bikes deteriorate mainly due to shocks by motions during start and end of their trips based on our obseravation of actual bike usage (not trip duration). The histogram supports conclusion that some bikes are, in fact, used more than others, so maintenance fees can pile up. Importantly, minority bikes were used over 12000 times in a month, which is twice as much as majority bikes. 
+
+```{r}
+hist(tripdata$bikeid, breaks = length(unique(tripdata$bikeid))/20, col = 'black', border = 'white')
+```
+<br />
+<br />
+
+After that, we developped a dynamic model to find out details, like number, id, and location of the frequently used bikes. These details are needed for the client to inspect their hypothesis on bike maitenance fee by taking countermeasures that we propose later.
+
+One of model inputs is the number of standard deviation above mean that defines the frequently used bikes out of other bikes based on bike use frequency. The number of the frequently used bikes are displayed in a sentence and chart. Then, if we choose a bike id from all frequently used bikes, the bike location at the end of month is shown in a map. The following is a picture of user interface of the model. We attached codes for the model named as "app.R".    
+
+<br />
+<br />
+
+![User Interface of the Tool "Bike Use"](bike use.png)
+<br />
+<br />
+<br />
+<br />
+
+#5. Demand Prediction
+In formulating our response to Citibike's concerns, we realized that all of our thinking was backwards-looking: we could only tell our client what had happened.  In order to add real value, we decided to include a prediction of bike demand by station, so that Citibike could redistribute bikes to the stations that would face the highest demand.  This actionable forecast was performed with a linear regression and used to predict demand for the first week of August, 2016.
+
+#6. Conclusion
+
+Based on our analysis, we propose the following countermeasures for each problem. 
+
+(A) Deficit / Surplus of Bikes at Stations<br />
+(1) Segment stations into severe and moderate deficit or surplus stations by utilizing our dynamic model "Deficit / Surplus of Bikes at Stations" (e.g. severe more than |500|, moderate less than or equal to |500|)　<br />
+
+(2) For severe deficit (surplus) stations, consider to increase (decrease) capacity of the stations or to newly add stations close to the stations (remove the stations), because locations of the stations can fundamentally be wrong, so cannnot fix the problem by daily operational improvement.<br />  
+
+(3) For moderate deficit (surplus) stations, transfer bikes from surplus stations to deficit stations on the daily basis, properly developing the implementation plan to minimize travel length and related manpower cost by utilizing a map in our dynamic model.
+<br />   
+(4) Continue implementing (1)-(3) above monthly to improve operation and to deal with seasonal change.
+<br />  
+<br />  
+
+(B) Imbalance of Bike Use<br />
+(1) Specify bikes that were used more frequently with our dynamic model "Bike Use".     
+<br />
+(2) Swap the frequently used bikes with other bikes to normalize bike use. Unlike deficit of bikes at stations, the frequently used bikes can be clearly distinguished from others, so at this hypothesis inspection phase, just swapping with nearby others is enough.   
+<br />
+(3) If the maintenance bills decline after that, continue taking this countermeasures because the problem B seems to be solved. 
+<br />   
+(4) If the maintenance bills don't decline, develop another hypothesis and inspect it by analyzing the data.
+<br />
+<br />
+
+Only if the client put a new csv data in same directory with app.R file, our dynamic models will automatically analyze it for new duration and provide insights necessary for client's decision making.
+
