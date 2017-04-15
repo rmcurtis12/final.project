@@ -1,0 +1,279 @@
+---
+title: "Business Model"
+author: 
+date: "April 15, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+# Speed Dating Overview:
+
+According to IBIS, in 2016 Match Group Inc (match.com, okcupid.com) controlled 34.4% of the online dating market while eHarmony.com had 11.4% of the market. These two companies are the, "plain vanilla" online dating leaders. However, There are many online dating sites that segment customers based on race, religion, occupation & other things:
+
+insert photos: 
+
+Here I will insert photos of the web banners of:
+
+blackpeoplemeeet.com
+jdate.com
+farmersonly.com
+clownpassion
+
+There were estimated to be 4,642 online dating website operators in 2017; however, the majority of these sites have very small market share and cater to very small segments of the market
+
+Here I will include a brief overview of Love related studies, why it may make sense to segment or not etc...
+
+just some random stuff about mating preference and dating in popular culture 
+
+
+# Problem for online dating sites
+
+Include something about how as a dating site you have a dilemma, be inclusive or cater to many segments? One brand (eHarmoney) or many different brands (Passions). Focus on big market or niche? Might be easier to predict matches as market segment is narrowed 
+
+Top Level Look at the Data what sticks out:
+
+First lets Look at what variables tend to correlate most strongly with a speed dating partner choosing to request you as a match:
+
+
+```{r}
+require(dplyr)
+require(ggplot2)
+require(stringr)
+require(gridExtra)
+
+speed.d <- read.csv("Speed Dating Data.csv")
+
+# Variables I want with short definition:
+
+#1 iid
+#3 gender (1= male)
+#13 match
+#14 int_corr
+#15 samerace
+#16 age_o # partner age
+#17 race_o # partner race
+#18 pf_o_att # partners stated preferecne at time #1
+#attr_o rating by partner end of nigth
+
+
+#34 age (rater age)
+#35 field
+#38 mn_sat 
+#40 race
+#41 imp race
+#46 goal
+#48 go out
+#50 career coded
+
+#98_:107: ratings/ attributes
+
+
+speed.d.sub <- speed.d[ , c(1,3,6,12:17,34,36,38,40,41,46,48,50,98:107)]
+
+# add in partner gender
+
+speed.d.sub$pgender <- ifelse(speed.d.sub$gender == 1,0,1)
+
+# SAT to numeric 
+
+speed.d.sub$mn_sat <- as.character(speed.d.sub$mn_sat)
+
+speed.d.sub$mn_sat <- str_replace_all(speed.d.sub$mn_sat, "[[:punct:]]", "")
+
+speed.d.sub$mn_sat <- as.numeric(speed.d.sub$mn_sat)/100
+
+# attributes predicting decesion Yes success:
+
+  attr.pred <-
+    speed.d.sub %>%
+      group_by(pid) %>%
+          summarise(Decision = mean(dec), Attractive = mean(attr), Sincere = mean(sinc),
+              Intelligent = mean(intel), Fun = mean(fun), Ambitious = mean(amb), Interest = mean(shar))
+
+# Indiviual Plots  
+  
+attrat.desc <- ggplot(attr.pred, aes(x = Decision, y = Attractive)) + geom_point() + geom_smooth(method = "lm")
+
+sinc.desc <- ggplot(attr.pred, aes(x = Decision, y = Sincere)) + geom_point() + geom_smooth(method = "lm")
+
+intel.desc <- ggplot(attr.pred, aes(x = Decision, y = Intelligent)) + geom_point() + geom_smooth(method = "lm")
+
+ambit.desc <- ggplot(attr.pred, aes(x = Decision, y = Ambitious)) + geom_point() + geom_smooth(method = "lm")
+
+inter.desc <- ggplot(attr.pred, aes(x = Decision, y = Interest)) + geom_point() + geom_smooth(method = "lm")
+
+dec.rate <- ggplot(attr.pred, aes(x = pid, y = Decision)) + geom_point()    
+
+
+# Plot Pannel 
+
+grid.arrange(attrat.desc, sinc.desc, intel.desc, ambit.desc, ncol = 2)
+
+
+
+
+```
+
+When it comes to having a dating site, the worst thing that can happen is that you are not matched with anyone.
+In the okmatch.com data-set, only 22 people were "duds", those who had no partner that listed them as a "yes"
+
+On the flip-side, there were 22 "studs", those who had every single person they met with list them as a "yes".
+
+All studs were females and 18 of the duds were men while only 4 were female. 
+
+The studs went on a average of 10.3 dates and the duds on an average of 13.6 so this wasn't a case a low date numbers skewing the results 
+
+Make a nicer table here
+
+```{r pressure, echo=FALSE}
+
+# Studs
+
+studs <-filter(attr.pred, Decision == 1)
+
+studs.gender <-   speed.d.sub %>%
+                  filter(pid %in% studs$pid) %>%
+                    select(pgender,pid) %>%
+                        unique()
+
+table(studs.gender$pgender)
+
+# Duds
+
+duds <- filter(attr.pred, Decision == 0)
+
+duds.gender <-   speed.d.sub %>%
+                  filter(pid %in% duds$pid) %>%
+                    select(pgender, pid) %>%
+                        unique()
+
+table(duds.gender$pgender)
+                      
+
+```
+
+Do People that are similarly rated on the attractive scale tend to match?
+
+```{r}
+### How partners rate each other ######    
+  
+match.combos <- 
+    speed.d.sub %>%
+        select(pid, iid, match,attr) %>%
+          filter(match ==1) %>%
+            unique()
+
+match.combos.three <- match.combos[,c(1,2,4)]
+
+reverse <- as.data.frame(cbind(match.combos$iid, match.combos$pid))
+
+colnames(reverse) <- c("pid", "iid")
+
+a <- left_join(reverse, match.combos, by = c("pid", "iid"))
+
+b <- cbind(a$attr,match.combos.three)
+
+colnames(b) <- c("attrx", "pid", "iid", "attr")
+
+b$diff = b[,1] - b[,4]
+
+match.looks.plot <- ggplot(b, aes(attrx, attr)) + geom_bin2d()
+
+
+# No Match
+
+no.match.combos <- 
+    speed.d.sub %>%
+        select(pid, iid, match,attr) %>%
+          filter(match ==0) %>%
+            unique()
+
+no.match.combos.three <- no.match.combos[,c(1,2,4)]
+
+no.match.reverse <- as.data.frame(cbind(no.match.combos$iid, no.match.combos$pid))
+
+colnames(no.match.reverse) <- c("pid", "iid")
+
+no.a <- left_join(no.match.reverse, no.match.combos, by = c("pid", "iid"))
+
+no.b <- cbind(no.a$attr,no.match.combos.three)
+
+colnames(no.b) <- c("attrx", "pid", "iid", "attr")
+
+no.b$diff = no.b[,1] - no.b[,4]
+
+no.match.looks.plot <-ggplot(no.b, aes(attrx, attr)) + geom_bin2d()
+
+grid.arrange(no.match.looks.plot,match.looks.plot, ncol =2)
+
+# add one more plot with an overall picture (non matches + matches) 
+
+
+
+```
+
+
+As was discussed earlier, the  most common ways online dating sites segment their markets is
+by race, religion and occupation. Because we only have racial data we'll focus on that:
+
+There were 407 people that matched to a person of a different race. Also, Other, Blacks and Latinos were the most likely to match with a partner of a different race. Whites were the least likely at 39% of total matches.
+
+You can also see below that daters that said they did not care about race, actually did engage in the most mixed
+race matches 
+
+
+```{r}
+# Diff race stats
+
+all.matches <- filter(speed.d.sub, match ==1)
+
+diff.race.matches <- filter(speed.d.sub, samerace == 0 & match ==1)
+
+num.diff.race <- length(diff.race.matches$race)/2
+
+diff.race.perc <- round(table(diff.race.matches$race) / table(all.matches$race), digits = 2)
+
+rownames(diff.race.perc) <- c("Black", "White", "Latino", "Asian", "Other")
+
+diff.race.perc
+
+# Same Race
+
+same.race.matches <- filter(speed.d.sub, samerace == 1 & match ==1)
+
+same.race.perc <- round(table(same.race.matches$race) / table(all.matches$race), digits = 2)
+
+rownames(same.race.perc) <- c("Black", "White", "Latino", "Asian", "Other")
+
+same.race.perc
+
+# need to add legend
+ggplot(speed.d.sub, aes(imprace)) + 
+  geom_density(data = diff.race.matches, fill = "blue", alpha =.5) + # diff race matches are blue
+  geom_density(data = same.race.matches, fill = "yellow", alpha =.5) + # same race matches    
+  ggtitle("Matching Among Same and Different Races") + xlab("Importance of Race 1-10 Scale") + ylab("Density")
+
+```
+
+
+Include some more stuff on occupation and maybe some things like itelligence 
+
+
+
+Maybe try something with the clustering like in class: Something like:
+
+YUPPI - dining, museum, art,
+
+JOCK - hiking, exercise, tvsports
+
+Itellectual - theatre, reading, art museums 
+
+Cool girl <- shopping, movies, converts, clubbing 
+
+moms basement - gaming, 
+
+
+
