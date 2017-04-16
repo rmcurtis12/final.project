@@ -9,15 +9,9 @@ output: html_document
 1. Data cleaning & preparation
 1.1 Step logit
 1.2 Random forest on variables ID'd by step logit
-2. KNN model
-3. SVM model
-4. ANN model
-4. Random Forest
-5. ANN model
-6. Model Accuracy
+2. Run ML models
+3. Generate predictions for all models
 7. Create Ensemble Model
->>>>>>> 486378e7f645d9942665e09b539e589c5baac985
-
 
 #1. Data cleaning & preparation 
 
@@ -173,24 +167,30 @@ sdclean$shar_dif_norm<-i$shar_dif
 # j<-data.frame(lapply(sdclean[5], normalize))
 # sdclean$int_corr_norm<-j$int_corr
 
+sdclean2 <- as.data.frame(model.matrix(~ ., sdclean))
 
-```
+sdclean2$`(Intercept)` <- NULL
 
-Delete unnecessary columns
-```{r}
-sdfinal <- sdclean[,c(4,75:80)]
-str(sdfinal)
-```
+str(sdclean2)
 
-Create train & test data
-```{r}
-##Make train and test data
-train_data<-sdfinal[1:4500,]
-test_data<-sdfinal[4501:6499,]
+sdclean2$field_cdSocSciePsych <- sdclean2$`field_cdSocScie/Psych`
+sdclean2$go_out2Week <- sdclean2$`go_out2/Week`
+sdclean2$go_out1Week <- sdclean2$`go_out1/Week`
+sdclean2$go_out2Month <- sdclean2$`go_out2/Month`
+sdclean2$go_out1Month <- sdclean2$`go_out1/Month`
+sdclean2$go_outSVRLYear <- sdclean2$`go_outSVRL/Year`
+sdclean2$career_cAcademicResearch <- sdclean2$`career_cAcademic/Research`
+sdclean2$career_cBankingConsulting <- sdclean2$`career_cBanking/Consulting`
 
-#Make labels for train and test data
-train_data_label<-sdfinal[1:4500,1]
-test_data_label<-sdfinal[4501:6499,1]
+sdclean2$`field_cdSocScie/Psych` <- NULL
+sdclean2$`go_out2/Week` <- NULL
+sdclean2$`go_out1/Week` <- NULL
+sdclean2$`go_out2/Month` <- NULL
+sdclean2$`go_out1/Month` <- NULL
+sdclean2$`go_outSVRL/Year` <- NULL
+sdclean2$`career_cAcademic/Research` <- NULL
+sdclean2$`career_cBanking/Consulting` <- NULL
+save(sdclean2, file = "sdclean2")
 
 ```
 
@@ -198,41 +198,48 @@ test_data_label<-sdfinal[4501:6499,1]
 ```{r}
 #Working with sdclean data, not sdfinal
 ##Make train and test data
-train_data_sdclean<-sdclean[1:4500,]
-test_data_sdclean<-sdclean[4501:6499,]
 
-#str(sdclean)
+load(file = "sdclean2")
+
+set.seed(628)
+train_data_sdclean<-sdclean2[1:4500,]
+test_data_sdclean<-sdclean2[4501:6499,]
 
 #Make labels for train and test data
-train_label_sdclean<-sdclean[1:4500,1]
-test_label_sdclean<-sdclean[4501:6499,1]
+train_label_sdclean<-sdclean2$match1[1:4500]
+test_label_sdclean<-sdclean2$match1[4501:6499]
 
-log_step_f <- colnames(sdclean) %>% 
-    {paste(.[! . %in% "match"], collapse = " + ")} %>% 
-    paste("match ~ ", .) %>% 
+log_step_f <- colnames(sdclean2) %>% 
+    {paste(.[! . %in% "match1"], collapse = " + ")} %>% 
+    paste("match1 ~ ", .) %>% 
     as.formula()
 
-log_model_step <- glm(match ~ 1, data = train_data_sdclean, family = binomial)
+log_step_f
+
+log_model_step <- glm(match1 ~ 1, data = train_data_sdclean, family = binomial)
 log_model_step <- step(log_model_step, scope = (log_step_f), direction = "forward")
   
 summary(log_model_step)
 save(log_model_step,file = "log_model_step.txt")
 
-sig_var = c("prob_o","gender","pf_o_sha","met_o","race","exphappy","sports","attr1_1","pf_o_sin","go_out","fun_o","attr_o","age_o","int_corr","yoga","shar2_1","shopping")
+#sig_var <- c("prob_o","pf_o_sha","gender","met_o","exercise","exphappy","yoga","attr1_1","pf_o_sin","art","gaming","intel2_1","attr2_1","clubbing","dining","intel3_1","fun_o","movies","tv")
 
-
+sig_var <- c("prob_o","pf_o_sha","gender1","race2","pf_o_sin","attr1_1","exphappy","met_o","sports","race_o4","career_cPolitics","field_cdBusiness","gaming","dining","art","movies","attr_o")
 ```
 
 #1.2 Random forest on significant variables
 ```{r}
 #create the formula for random forest "match ~ blah + blah + blah..."
-ran_for_f <- sig_var %>% 
-    {paste(.[! . %in% "match"], collapse = " + ")} %>% 
-    paste("match ~ ", .) %>% 
+sig_var_f <- sig_var %>% 
+    {paste(.[! . %in% "match1"], collapse = " + ")} %>% 
+    paste("match1 ~ ", .) %>% 
     as.formula()
 
+sig_var_f
+
 #run the RANdom FORest on the SIGnificant VARiables
-ran_for_sig_var <- randomForest(formula = ran_for_f, data = train_data_sdclean, importance=TRUE)
+set.seed(628)
+ran_for_sig_var <- randomForest(formula = sig_var_f, data = train_data_sdclean, importance=TRUE)
 
 plot(ran_for_sig_var)
 
@@ -242,155 +249,85 @@ varImpPlot(ran_for_sig_var,
            sort = T,
            main="Variable Importance")
 
+ran_for_sig_var_pred <- predict(ran_for_sig_var,test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
+#summary(ran_for_pred)
+#summary(test_label_sdclean)
+
+confusionMatrix(data=ran_for_sig_var_pred,reference=test_data_sdclean$match1)
 
 ```
 
 
-#2. KNN model
+#2. Run the models
 ```{r}
-library(class)
+#Log model
+set.seed(628)
+train_data_sdclean$match2 <- train_data_sdclean$match1 - 1
+log_f <- sig_var %>% 
+    {paste(.[! . %in% "match1"], collapse = " + ")} %>% 
+    paste("match2 ~ ", .) %>% 
+    as.formula()
+log_model <- glm(formula = log_f, data = train_data_sdclean, family = binomial)
 
-#Delete target variable from train data
-train_data_knn<-train_data[-1]
-test_data_knn<-test_data[-1]
+#Develop KNN Models
+set.seed(628)
+knn_pred_21<-knn(train=train_data_sdclean, test=test_data_sdclean, cl=train_label_sdclean, k=21)
+set.seed(628)
+knn_pred_7<-knn(train=train_data_sdclean, test=test_data_sdclean, cl=train_label_sdclean, k=7)
 
-#Develop KNN Model
-<<<<<<< HEAD
-knn_data_pred<-knn(train=data_train_knn, test=data_test_knn, cl=data_train_label, k=44)
+#develop SVM models
+set.seed(628)
+library(e1071)
+svm_model_lin <- svm(formula = sig_var_f, data = train_data_sdclean, kernel = "linear")
 
-#Inspect model accuracy
-#library(gmodels)
-#CrossTable(x=data_test_label,y=knn_data_pred,prop.chisq = FALSE)
-=======
->>>>>>> 486378e7f645d9942665e09b539e589c5baac985
+set.seed(628)
+svm_model_rad <- svm(formula = sig_var_f, data = train_data_sdclean, kernel = "radial")
 
-run_all_knn_models = F
+#develop random forest model
+set.seed(628)
+random_forest_model <- randomForest(formula = sig_var_f, data = train_data_sdclean)
 
-if (run_all_knn_models) {
-  knn_model_one <- knn(train=train_data_knn, test=test_data_knn, cl=train_data_label, k=5)
-  knn_model_two <- knn(train=train_data_knn, test=test_data_knn, cl=train_data_label, k=10)
-  
-  midbeep()
-  endbeep()
-  save(knn_model_one, file = "knn_model_one.txt")
-  save(knn_model_two, file = "knn_model_two.txt")
-#  save(knn_model_train, file = "knn_model_train.txt") 
-} else {
-  load(file = "knn_model_one.txt")
-  # load(file = "knn_model_train.txt") 
-  load(file = "knn_model_two.txt")
-}
-```
+#develop ctree model
+set.seed(628)
+library(partykit)
+ctree_model <- ctree(formula = sig_var_f, data = train_data_sdclean, control = ctree_control(mincriterion = .90))
 
+#develop boosted tree
+#C5.0 needs response as a factor
+train_data_sdclean$match1 <- as.factor(train_data_sdclean$match1)
+boosted_tree_model <- C5.0(formula = sig_var_f, data = train_data_sdclean, trials = 100)
+train_data_sdclean$match1 <- as.numeric(train_data_sdclean$match1)
 
-#3. SVM model 
-```{r}
-<<<<<<< HEAD
-library(kernlab)
-
-#Develop SVM model
-data_classifier <- ksvm(match ~ ., data = data_train, kernel = "vanilladot")
-svm_data_pred <- predict(data_classifier, data_test)
-svm_data_pred <- ifelse(svm_data_pred>0.5, 1, 0)
-
-#Inspect model accuracy
-#table(svm_data_pred, data_test$match)
-#agreement <- svm_data_pred == data_test$match
-#table(agreement)
-#prop.table(table(agreement))
-
-#89.9% accuracy in the previous model run
-=======
-run_all_svm_models = F
-
-if (run_all_svm_models) {
-  svm_model_one <- ksvm(match ~ ., data = train_data, kernel = "vanilladot")
-  svm_model_two <- ksvm(match ~ ., data = train_data, kernel = "rbfdot")
-  midbeep()
-  # svm_model_train decided to error out on us
-  svm_model_train <- caret::train(match ~ ., data = train_data, 
-                                  method = "svmRadialSigma", 
-                                  metric = "Kappa")#, 
-                                  # trcontrol = fitControl)
-  endbeep()
-  save(svm_model_one, file = "svm_model_one.txt")
-  save(svm_model_two, file = "svm_model_two.txt")
-  save(svm_model_train, file = "svm_model_train.txt") 
-} else {
-  load(file = "svm_model_one.txt")
-  # load(file = "svm_model_train.txt") 
-  load(file = "svm_model_two.txt")
-}
->>>>>>> 486378e7f645d9942665e09b539e589c5baac985
-```
-
-#4. Random Forest
-```{r}
-<<<<<<< HEAD
+#develop ANN model
 library(neuralnet)
-=======
-run_all_tree_models = F
+set.seed(628)
+#ANN_model <- neuralnet(formula = sig_var_f, data = train_data_sdclean, lifesign = "full", hidden = 20)
 
-if (run_all_tree_models) {
-  # Basic Classification Tree
-  tree_model <- ctree(match ~ ., data = train_data, 
-                      control = ctree_control(mincriterion = .99))
-  tree_random_forest <- randomForest(match~., data = train_data)
-  midbeep()
-  # Ada Tree
-  tree_ada <- ada(match~., data = train_data)
-  save(tree_model, file = "tree_model.txt")
-  save(tree_random_forest, file = "tree_random_forest.txt")
-  save(tree_ada, file = "tree_ada.txt")
-} else {
-  load(file = "tree_model.txt")
-  load(file = "tree_random_forest.txt")
-  load(file = "tree_ada.txt")
-}
+
 ```
->>>>>>> 486378e7f645d9942665e09b539e589c5baac985
 
-#5. ANN model
+#3. Make Predictions from Test Data
 ```{r}
-data_n <- model.matrix(~. + 0, data = sdfinal)
-nnformula <- colnames(data_n) %>% {as.formula(paste("match ~", paste(.[!. %in% "match"], collapse = " + ")))}
-train_data_indicies <- sample(1:nrow(sdfinal), 
-                              replace = F, 
-                              size = floor(nrow(sdfinal) * 0.8)) 
-data_n_train <- data_n[1:nrow(data_n) %in% train_data_indicies,]
-data_n_test <- data_n[!(1:nrow(data_n) %in% train_data_indicies),]
+log_pred <- predict(log_model, test_data_sdclean, type = "response") %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-run_all_nn_models = T
+svm_pred_lin <- predict(svm_model_lin, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-  if (run_all_nn_models) {
-    # The neural net will not work with the standard telemarketing data
-    neural_model <- neuralnet::neuralnet(formula = as.factor(match), data = train_data)
-    midbeep()
-    neural_model_list <- list()
-    
-    neural_seq <- seq(from = 6, to = 20, by = 4)
-    nn_models_big <- lapply(neural_seq, function(i) {
-      cat("Working on:", i, "\n")
-      return(neuralnet::neuralnet(formula = as.factor(match), 
-                                       data = train_data, 
-                                       hidden = i, 
-                                       stepmax = 1e05))
-      midbeep()
-    })
+svm_pred_rad <- predict(svm_model_rad, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-  neural_model_2 = nn_models_big[[1]]
-  # All of the rest of the neural models blew up
-  save(nn_models_big, file = "nn_models_big")
-  save(neural_model, file = "neural_model.txt")
-  save(neural_model_2, file = "neural_model_2.txt")
-} else {
-  load(file = "neural_model.txt")
-  load(file = "neural_model_2.txt")
-}
+
+ran_for_pred <- predict(random_forest_model, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+ctree_pred <- predict(ctree_model, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+boosted_tree_pred <- predict(boosted_tree_model, test_data_sdclean)
+
+#ann_pred <- predict(ANN_model, test_data_sdclean)
+
+
 ```
 
-#6. Model Accuracy
+#4. Determine accuracy
 ```{r}
 accuracy <- function(predicted, trueval, model, hideoutput = F) {
   stopifnot(length(predicted) == length(trueval))
@@ -399,40 +336,18 @@ accuracy <- function(predicted, trueval, model, hideoutput = F) {
   return(result)
 }
 
-knn_prediction_01 <- knn_model_one
-knn_prediction_02 <- knn_model_two
+a0 = accuracy(log_pred, test_data_sdclean$match1, "Logit", TRUE)
+a1 = accuracy(knn_pred_21, test_data_sdclean$match1, "KNN 21", TRUE)
+a2 = accuracy(knn_pred_7, test_data_sdclean$match1, "KNN 7", TRUE)
+a3 = accuracy(svm_pred_lin, test_data_sdclean$match1, "SVM (cartesian)", TRUE)
+a4 = accuracy(svm_pred_rad, test_data_sdclean$match1, "SVM (polar)", TRUE)
+a5 = accuracy(ran_for_pred, test_data_sdclean$match1, "Random Forest", TRUE)
+a6 = accuracy(ctree_pred, test_data_sdclean$match1, "Ctree", TRUE)
+a7 = accuracy(boosted_tree_pred, test_data_sdclean$match1, "Boosted Tree", TRUE)
+#a8 = accuracy(ann_pred, test_data_sdclean$match1, "Neural Net 50 (!) Hidden Node", TRUE)
 
-svm_prediction_01 <- predict(svm_model_one, test_data)
-svm_prediction_02 <- predict(svm_model_two, test_data)
-
-# neuralnet_prediction <- neuralnet::compute(neural_model, telemarketing_n_test[, 1:54])$net.result %>% {ifelse(. > 0.5, "yes", "no")} %>% as.factor()
-# neuralnet_prediction_2 <- neuralnet::compute(neural_model_2, telemarketing_n_test[, 1:54])$net.result %>% {ifelse(. > 0.5, "yes", "no")} %>% as.factor()
-
-tree_prediction <- predict(tree_model, test_data)
-tree_random_forest_prediction <- predict(tree_random_forest, test_data)
-tree_ada_prediction <- predict(tree_ada, test_data)
-```
-
-<<<<<<< HEAD
-#how did we do?
-#ann_output <- CrossTable(x = data_test_label, y = ann_predicted_match, 
-           prop.chisq=FALSE)
-=======
->>>>>>> 486378e7f645d9942665e09b539e589c5baac985
-
-```{r}
-a2 = accuracy(knn_prediction_01, test_data$match, "KNN ONE", TRUE)
-a3 = accuracy(knn_prediction_02, test_data$match, "KNN TWO", TRUE)
-a4 = accuracy(svm_prediction_01, test_data$match, "SVM with Vanilla Kernal", TRUE)
-a5 = accuracy(svm_prediction_02, test_data$match, "SVM Radial Basis Kernal", TRUE)
-# a6 = accuracy(neuralnet_prediction, test_data$match, "Neural Net One Hidden Node", TRUE)
-# a7 = accuracy(neuralnet_prediction_2, test_data$match, "Neural Net Two Hidden Nodes", TRUE)
-a8 = accuracy(tree_prediction, test_data$match, "CTree Regression", TRUE)
-a9 = accuracy(tree_random_forest_prediction, test_data$match, "Random Forest Classification", TRUE)
-a10 = accuracy(tree_ada_prediction, test_data$match, "Ada Boost Classification", TRUE)
-
-acc_predictions = c(a2,a3,a4,a5,a8,a9,a10)
-names = c("KNN ONE", "KNN TWO", "SVM with Vanilla Kernal","SVM Radial Basis Kernal","CTree Regression","Random Forest Classification","Ada Boost Classification")
+acc_predictions = c(a0,a1,a2,a3,a4,a5,a6,a7)
+names = c("Logit", "kNN 21", "kNN 7", "SVM (cartesian)","SVM (polar)","Random Forest","CTree","Boosted Tree")
 
 acc_mat <- data.frame(ModelName = names, accuracy = acc_predictions) %>% print
 ```
@@ -441,28 +356,9 @@ acc_mat <- data.frame(ModelName = names, accuracy = acc_predictions) %>% print
 dotchart(acc_predictions, labels = names, main = "Accuracy of the models", xlab = "Accuracy")
 ```
 
-#5. Model Accuracy
-```{r}
 
-accuracy <- function(predicted, trueval, model, hideoutput = F) {
-  stopifnot(length(predicted) == length(trueval))
-  result <- sum(predicted == trueval) / length(predicted)
-  if (!hideoutput) {cat("Model:", model, "had", result, "accuracy\n")}
-  return(result)
-}
-
-print(accuracy(svm_data_pred,data_test_label,"SVM"))
-print(accuracy(knn_data_pred,data_test_label,"kNN"))
-print(accuracy(ann_predicted_match,data_test_label,"ANN"))
-
-```
-
-
-<<<<<<< HEAD
-#6. Create Ensemble Model
-=======
 #7. Create Ensemble Model
->>>>>>> 486378e7f645d9942665e09b539e589c5baac985
+
 ```{r}
 
 # Convert all of the feature data to factors....
@@ -476,20 +372,47 @@ library(magrittr)
 library(dplyr)
 
 # Convert each set of predictions to factors
-knn_data_pred %<>% ConvertToYesNo()
-svm_data_pred %<>% ConvertToYesNo()
-ann_predicted_match %<>% ConvertToYesNo()
+log_pred %<>% ConvertToYesNo()
+knn_pred_21 %<>% ConvertToYesNo()
+knn_pred_7 %<>% ConvertToYesNo()
+svm_pred_lin %<>% ConvertToYesNo()
+svm_pred_rad %<>% ConvertToYesNo()
+ran_for_pred %<>% ConvertToYesNo()
+ctree_pred %<>% ConvertToYesNo()
+boosted_tree_pred %<>% ConvertToYesNo()
 
-model_combined_results <- data.frame(knn_data_pred, svm_data_pred, ann_predicted_match) %>% as.tbl()
+stacked_data <-data.frame(log_pred,knn_pred_21,knn_pred_7,svm_pred_lin,svm_pred_rad,ran_for_pred,ctree_pred,boosted_tree_pred) %>% as.tbl()
 
 summary(model_combined_results)
-str(data_test_label)
+
+#generate predictions on train data
+log_pred_train <- predict(log_model, train_data_sdclean, type = "response") %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+svm_pred_lin_train <- predict(svm_model_lin, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+svm_pred_rad_train <- predict(svm_model_rad, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+knn_pred_21_train <-knn(train=test_data_sdclean, test=train_data_sdclean, cl=test_label_sdclean, k=21)
+
+knn_pred_7_train <-knn(train=test_data_sdclean, test=train_data_sdclean, cl=test_label_sdclean, k=7)
+
+ran_for_pred_train <- predict(random_forest_model, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+ctree_pred_train <- predict(ctree_model, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+
+boosted_tree_pred_train <- predict(boosted_tree_model, train_data_sdclean)
+
+model_combined_results <- data.frame(log_pred_train, svm_pred_lin_train, knn_pred_21_train, knn_pred_7_train, svm_pred_rad_train, ran_for_pred_train, ctree_pred_train, boosted_tree_pred_train) %>% as.tbl()
 
 # Create the model -> Stacking with a Ctree to find out if it helps any!
 library(partykit)
 
-stacked_model <- ctree(data_test_label ~ ., data = model_combined_results) %T>% plot
+names(model_combined_results) <- names(stacked_data)
+
+stacked_model <- ctree(train_data_sdclean$match1 ~ ., data = model_combined_results) %T>% plot
 #, controls = ctree_control(mincriterion = 0.99999)
+
+ensemble_pred <- prediction(stacked_model,stacked_train_results)
 
 ```
 
