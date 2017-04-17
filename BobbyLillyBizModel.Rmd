@@ -238,7 +238,7 @@ ggplot(b, aes(diff)) + geom_density() + stat_function(fun=dnorm,
                                                           color="red",
                                                             args=list(mean=mean(b$diff, na.rm = TRUE), 
                                                                 sd=sd(b$diff, na.rm = TRUE))) +
-  ggtitle("Differences in Attractiveness Among Matches") + xlab("Difference in Attractiveness Ratings")
+  ggtitle("Differences in Attractiveness Among Matches vs Normal Curve") + xlab("Difference in Attractiveness Ratings")
 
 # no match
 
@@ -246,7 +246,7 @@ ggplot(no.b, aes(diff)) + geom_density() + stat_function(fun=dnorm,
                                                           color="red",
                                                             args=list(mean=mean(b$diff, na.rm = TRUE), 
                                                                 sd=sd(b$diff, na.rm = TRUE))) +
-  ggtitle("Differences in Attractiveness Among Non Matches") + xlab("Difference in Attractiveness Ratings")
+  ggtitle("Differences in Attractiveness Among Non Matches vs Normal Curve") + xlab("Difference in Attractiveness Ratings")
 
 
 ```
@@ -316,7 +316,7 @@ g <- rbind(diff.race.matches, same.race.matches)
 
 ggplot(g, aes(imprace, colour = samerace, fill = samerace)) +
   geom_density(alpha = .2) + ggtitle("Matching by Partners of Same & Different Races") +
-  xlab("Importantance of Race 1/10 scale")
+  xlab("Importance of Race 1/10 scale")
 
 
 
