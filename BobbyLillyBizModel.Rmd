@@ -1,8 +1,8 @@
 ---
-title: "Business Model"
-author: 
-date: "April 15, 2017"
-output: html_document
+author: 'null'
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -11,31 +11,30 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 # Speed Dating Overview:
 
-According to IBIS, in 2016 Match Group Inc (match.com, okcupid.com) controlled 34.4% of the online dating market while eHarmony.com had 11.4% of the market. These two companies are the, "plain vanilla" online dating leaders. However, There are many online dating sites that segment customers based on race, religion, occupation & other things:
+According to IBIS, in 2016 Match Group Inc (match.com, okcupid.com) controlled 34.4% of the online dating market while eHarmony.com had an 11.4% share of the market. These two companies are the, "plain vanilla" online dating leaders. However, There are many online dating sites that segment customers based on race, occupation, religion & other things. There were estimated to be 4,642 online dating website operators in early 2017; however, the majority of these sites have very small market share and cater to only a very small segments of the online dating market.
 
-insert photos: 
-
-Here I will insert photos of the web banners of:
-
-blackpeoplemeeet.com
-jdate.com
-farmersonly.com
-clownpassion
-
-There were estimated to be 4,642 online dating website operators in 2017; however, the majority of these sites have very small market share and cater to very small segments of the market
-
-Here I will include a brief overview of Love related studies, why it may make sense to segment or not etc...
-
-just some random stuff about mating preference and dating in popular culture 
+Below are some websites we came across during our research:
 
 
-# Problem for online dating sites
+![A place for black people to meet](black people meet.png)
 
-Include something about how as a dating site you have a dilemma, be inclusive or cater to many segments? One brand (eHarmoney) or many different brands (Passions). Focus on big market or niche? Might be easier to predict matches as market segment is narrowed 
 
-Top Level Look at the Data what sticks out:
+![A place for farmers to meet](farmers only.png)
 
-First lets Look at what variables tend to correlate most strongly with a speed dating partner choosing to request you as a match:
+
+![A place for Jewish people to meet](jdat.png)
+
+
+![WHAT THE? A CLOWN FETISH DATING WEBSITE?!?](clown passions.png)
+
+
+# Problems For Online Dating Sites
+
+okmatch.com, as an online dating website, has a dilemma. Should okmatch.com be inclusive and have a unified brand, like eHarmoney, or should they segment the dating market along race, region and hobbies, like passions.com, a compeitor with many hundred of segmented dating sites. If okmatch.com chooses to have an open platform, they can serve a larger market and likely earn more revenue and profit; however, the disparate groups of people in this open dating pool might make it difficult for user to match often and match well. This could hurt okmatches subscription model as daters flee the site. On ther other hand, okmatch.com could create many new brands to cater to more niche markets; however this will be costly and it's not a given that okmatch as the resources and skills to succeed in many different markets. Furthermore, they may be too late to move on niche websites already established. For instance how many dating sites or Amish people does the market really need? 
+
+# Exploring the Data:
+
+First lets Look at what variables tend to correlate most strongly with a speed dating partner choosing to request their data as a match:
 
 
 ```{r}
@@ -43,6 +42,9 @@ require(dplyr)
 require(ggplot2)
 require(stringr)
 require(gridExtra)
+require(xtable)
+require(knitr)
+require(reshape2)
 
 speed.d <- read.csv("Speed Dating Data.csv")
 
@@ -117,16 +119,16 @@ grid.arrange(attrat.desc, sinc.desc, intel.desc, ambit.desc, ncol = 2)
 
 ```
 
-When it comes to having a dating site, the worst thing that can happen is that you are not matched with anyone.
-In the okmatch.com data-set, only 22 people were "duds", those who had no partner that listed them as a "yes"
+As you can see, it appears that attractive people have the highest "win rate" when it comes to decisions their partners make. The other variables have a positive correlation with decision rates, however, they are not as strong as the attractive variable.
 
-On the flip-side, there were 22 "studs", those who had every single person they met with list them as a "yes".
+# Studs and Duds
 
-All studs were females and 18 of the duds were men while only 4 were female. 
+When it comes to having an online dating site, the worst thing that can happen for a customer is that they are not matched with anyone on the site. This lack of success will likely result in members cancelling their subscriptions.
 
-The studs went on a average of 10.3 dates and the duds on an average of 13.6 so this wasn't a case a low date numbers skewing the results 
+In the okmatch.com data, only 22 people were "duds", those who had no partner that listed them as a "yes". On the flip-side, there were 3 "studs", those who had every single person they met with list them as a "yes".
 
-Make a nicer table here
+All studs were females and 18 of the duds were men while only 4 were female. The studs went on a average of 10.3 dates and the duds on an average of 13.6 so this wasn't a case a low date numbers skewing the results. 
+
 
 ```{r pressure, echo=FALSE}
 
@@ -139,7 +141,12 @@ studs.gender <-   speed.d.sub %>%
                     select(pgender,pid) %>%
                         unique()
 
-table(studs.gender$pgender)
+
+studs.table <- as.data.frame(table(studs.gender$pgender))
+
+colnames(studs.table) <- c("Gender", "Frequency")
+
+kable(studs.table, format = "html", caption= "Studs Frequency", align = "l")
 
 # Duds
 
@@ -150,12 +157,22 @@ duds.gender <-   speed.d.sub %>%
                     select(pgender, pid) %>%
                         unique()
 
-table(duds.gender$pgender)
+duds.table <- as.data.frame(table(duds.gender$pgender))
+
+colnames(duds.table) <- c("Gender", "Frequency")
+
+kable(duds.table, format = "html", caption= "Duds", align = "l")
+
+
                       
 
 ```
 
-Do People that are similarly rated on the attractive scale tend to match?
+
+# Do Similarly Attractive People Match More? 
+
+During our research, we wondered, "if companies are segmenting base up race, religion and occupation, why not
+segment based on attractiveness?". We were surprised to learn that we were not the first people to have this idea. There are already sites devoted to both "aesthetically challenged" (uglybugball.com) and "aesthetically advanced" people (beautifulpeople.com). In okmatch's data we wanted to see,  "do people that have similar looks (as rated by each other) tend to match more?". Also, we wanted to visualize how frequent people of very different attractiveness levels matched:
 
 ```{r}
 ### How partners rate each other ######    
@@ -180,7 +197,9 @@ colnames(b) <- c("attrx", "pid", "iid", "attr")
 
 b$diff = b[,1] - b[,4]
 
-match.looks.plot <- ggplot(b, aes(attrx, attr)) + geom_bin2d()
+match.looks.plot <- ggplot(b, aes(attrx, attr)) + geom_bin2d() + 
+  ggtitle("Pairwise Attractiveness of Matchers") +
+       ylab("Attractiveness") + xlab("Attractiveness")
 
 
 # No Match
@@ -205,24 +224,45 @@ colnames(no.b) <- c("attrx", "pid", "iid", "attr")
 
 no.b$diff = no.b[,1] - no.b[,4]
 
-no.match.looks.plot <-ggplot(no.b, aes(attrx, attr)) + geom_bin2d()
+no.match.looks.plot <-ggplot(no.b, aes(attrx, attr)) + geom_bin2d() +
+  ggtitle("Pairwise Attractiveness of NonMatchers") +
+     ylab("Attractiveness") + xlab("Attractiveness")
 
 grid.arrange(no.match.looks.plot,match.looks.plot, ncol =2)
 
-# add one more plot with an overall picture (non matches + matches) 
+# histagram of look diff
 
+# match
+
+ggplot(b, aes(diff)) + geom_density() + stat_function(fun=dnorm,
+                                                          color="red",
+                                                            args=list(mean=mean(b$diff, na.rm = TRUE), 
+                                                                sd=sd(b$diff, na.rm = TRUE))) +
+  ggtitle("Differences in Attractiveness Among Matches vs Normal Curve") + xlab("Difference in Attractiveness Ratings")
+
+# no match
+
+ggplot(no.b, aes(diff)) + geom_density() + stat_function(fun=dnorm,
+                                                          color="red",
+                                                            args=list(mean=mean(b$diff, na.rm = TRUE), 
+                                                                sd=sd(b$diff, na.rm = TRUE))) +
+  ggtitle("Differences in Attractiveness Among Non Matches vs Normal Curve") + xlab("Difference in Attractiveness Ratings")
 
 
 ```
 
+As you can see attractive people tend to match with outher attractive people and people low on the attractive scale don't match as often as those who are more attractive 
 
-As was discussed earlier, the  most common ways online dating sites segment their markets is
-by race, religion and occupation. Because we only have racial data we'll focus on that:
 
-There were 407 people that matched to a person of a different race. Also, Other, Blacks and Latinos were the most likely to match with a partner of a different race. Whites were the least likely at 39% of total matches.
+#Race
+
+As was discussed earlier, the  most common ways online dating sites segment their markets is based on 
+race, religion and occupation. Because we only have racial data we'll focus on that:
+
+There were 407 people that matched to a person of a different race in the data we explored. Also, Other Race, Blacks and Latinos were the most likely to match with a partner of a different race. Whites were the least likely at 39% of total matches.
 
 You can also see below that daters that said they did not care about race, actually did engage in the most mixed
-race matches 
+race matches: 
 
 
 ```{r}
@@ -238,7 +278,11 @@ diff.race.perc <- round(table(diff.race.matches$race) / table(all.matches$race),
 
 rownames(diff.race.perc) <- c("Black", "White", "Latino", "Asian", "Other")
 
-diff.race.perc
+q <- as.data.frame(diff.race.perc)
+
+colnames(q) <- c("Race", "% Diff")
+
+kable(q, format = "html", caption = "Different Race Matches")
 
 # Same Race
 
@@ -248,32 +292,31 @@ same.race.perc <- round(table(same.race.matches$race) / table(all.matches$race),
 
 rownames(same.race.perc) <- c("Black", "White", "Latino", "Asian", "Other")
 
-same.race.perc
+z <- as.data.frame(same.race.perc)
 
-# need to add legend
-ggplot(speed.d.sub, aes(imprace)) + 
-  geom_density(data = diff.race.matches, fill = "blue", alpha =.5) + # diff race matches are blue
-  geom_density(data = same.race.matches, fill = "yellow", alpha =.5) + # same race matches    
-  ggtitle("Matching Among Same and Different Races") + xlab("Importance of Race 1-10 Scale") + ylab("Density")
+colnames(z) <- c("Race", "% Same")
+
+kable(z, format = "html", caption = "Same Race Matches")
 
 ```
 
 
-Include some more stuff on occupation and maybe some things like itelligence 
+We also found that daters that said that the race of their partner was less important, on average actually did engage in more matches to people of a different race compared to those who listed race as highly important:
 
+```{r}
 
+diff.race.matches <- filter(speed.d.sub, samerace == 0 & match ==1)
 
-Maybe try something with the clustering like in class: Something like:
+same.race.matches <- filter(speed.d.sub, samerace == 1 & match ==1)
 
-YUPPI - dining, museum, art,
+g <- rbind(diff.race.matches, same.race.matches)
+  g$samerace <- as.factor(g$samerace)
+    g$samerace <- factor(g$samerace, levels = c("0","1"), labels = c("different", "same"))
+      
 
-JOCK - hiking, exercise, tvsports
-
-Itellectual - theatre, reading, art museums 
-
-Cool girl <- shopping, movies, converts, clubbing 
-
-moms basement - gaming, 
+ggplot(g, aes(imprace, colour = samerace, fill = samerace)) +
+  geom_density(alpha = .2) + ggtitle("Matching by Partners of Same & Different Races") +
+  xlab("Importance of Race 1/10 scale")
 
 
 
