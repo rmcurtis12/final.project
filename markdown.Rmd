@@ -1,57 +1,51 @@
 ---
 title: "Final Project"
-author: "Takashi Takizawa"
+author: "Trump Tower Tappers"
 date: "2017/4/8"
 output: html_document
 ---
 
 #Table of contents
+0. Approach
 1. Data cleaning & preparation
 1.1 Step logit
 1.2 Random forest on variables ID'd by step logit
-2. Run ML models
+2. Run ML models with bagged data
 3. Generate predictions for all models
-7. Create Ensemble Model
+4. Calculate accuracy and kappa
+5. Generate ensemble
+6. Summary
+
+#0. Approach
+
+Our approach to this dataset follows a simple sequence.  First, we normalize, clean, prep, and otherwise munge the data so it is fit for analysis.  Next, we conduct a stepwise logistic regression to identify significant prediction variables.   The variables identified in that step are then applied to a random forest model to confirm the significance.  Several machine learning models are then generated and used to create predictions to compare to a test data set.  These predictions are then combined via classification tree to provide a stacked ensemble model.
 
 #1. Data cleaning & preparation 
 
-Import library
+#Import library
 ```{r}
 rm(list = ls())
-#install.packages("party")
-# install.packages("beepr")
-# install.packages("caret")
-# install.packages("ada")
-#install.packages("e1071")
-#install.packages("multcomp")
-#install.packages("party")
 
-library(multcomp)
-library(party)
-library(plyr)
-library(dplyr)
-library(class)
-library(gmodels)
-library(stats)
-library(magrittr)
-library(beepr)
-library(caret)
-library(kernlab)
-library(neuralnet)
-library(randomForest)
-library(ada)
-library(C50)
+suppressPackageStartupMessages(library(multcomp))
+suppressPackageStartupMessages(library(party))
+suppressPackageStartupMessages(library(plyr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(class))
+suppressPackageStartupMessages(library(gmodels))
+suppressPackageStartupMessages(library(stats))
+suppressPackageStartupMessages(library(magrittr))
+suppressPackageStartupMessages(library(beepr))
+suppressPackageStartupMessages(library(caret))
+suppressPackageStartupMessages(library(kernlab))
+suppressPackageStartupMessages(library(neuralnet))
+suppressPackageStartupMessages(library(randomForest))
+suppressPackageStartupMessages(library(ada))
+suppressPackageStartupMessages(library(C50))
+suppressPackageStartupMessages(library(vcd))
 
 ```
 
-Aux functions
-```{r}
-
-midbeep <- function() {beepr::beep("coin")}
-endbeep <- function() {beepr::beep("complete")}
-```
-
-Data cleaning
+#Data cleaning
 ```{r setup, include=FALSE}
 speed <- read.csv("Speed Dating Data.csv")
 speed$condtn <- as.factor(speed$condtn)
@@ -105,7 +99,7 @@ sdclean <- na.omit(sdrandom) #Remove rows with NA values to create a "clean" set
 ```
 
 
-Create new variables to show gaps between objects and partners
+#Create new variables to show gaps between objects and partners
 ```{r}
 normalize<-function(x){
   return((x-min(x))/(max(x)-min(x)))}
@@ -129,7 +123,7 @@ sdclean$shar_dif<-sdclean$pf_o_sha - sdclean$shar1_1
 
 ```
 
-Normarize variables
+#Normalize variables
 ```{r}
 #age difference
 # a<-data.frame(lapply(sdclean[69], normalize))
@@ -171,8 +165,6 @@ sdclean2 <- as.data.frame(model.matrix(~ ., sdclean))
 
 sdclean2$`(Intercept)` <- NULL
 
-str(sdclean2)
-
 sdclean2$field_cdSocSciePsych <- sdclean2$`field_cdSocScie/Psych`
 sdclean2$go_out2Week <- sdclean2$`go_out2/Week`
 sdclean2$go_out1Week <- sdclean2$`go_out1/Week`
@@ -192,10 +184,6 @@ sdclean2$`career_cAcademic/Research` <- NULL
 sdclean2$`career_cBanking/Consulting` <- NULL
 save(sdclean2, file = "sdclean2")
 
-```
-
-#1.1 Step Logit to identify significant prediction variables
-```{r}
 #Working with sdclean data, not sdfinal
 ##Make train and test data
 
@@ -209,22 +197,43 @@ test_data_sdclean<-sdclean2[4501:6499,]
 train_label_sdclean<-sdclean2$match1[1:4500]
 test_label_sdclean<-sdclean2$match1[4501:6499]
 
+train_data_sdclean_noResp <- train_data_sdclean
+test_data_sdclean_noResp <- test_data_sdclean
+
+train_data_sdclean_noResp$match1 <- NULL
+test_data_sdclean_noResp$match1 <- NULL
+
+###create bagged train data
+# table(train_data_sdclean$match1)
+# count(match1 == 1) = 764
+train_data_bag_0 <- sample_n(train_data_sdclean, 800, replace = FALSE) %>% filter(match1 == 0)
+
+train_data_bag_1 <- train_data_sdclean %>% filter(match1 == 1)
+train_data_bag <- bind_rows(train_data_bag_0,train_data_bag_1)
+#randomize dataset
+train_data_bag <- train_data_bag[sample(nrow(train_data_bag)),]
+
+train_label_bag <- train_data_bag$match1
+train_data_bag_noResp <- train_data_bag
+train_data_bag_noResp$match1 <- NULL
+```
+
+#1.1 Step Logit to identify significant prediction variables
+```{r}
 log_step_f <- colnames(sdclean2) %>% 
     {paste(.[! . %in% "match1"], collapse = " + ")} %>% 
     paste("match1 ~ ", .) %>% 
     as.formula()
 
-log_step_f
+log_model_step <- glm(train_label_sdclean ~ 1, data = train_data_sdclean, family = binomial)
+#log_model_step <- step(log_model_step, scope = (log_step_f), direction = "forward")
 
-log_model_step <- glm(match1 ~ 1, data = train_data_sdclean, family = binomial)
-log_model_step <- step(log_model_step, scope = (log_step_f), direction = "forward")
-  
+
+#save(log_model_step,file = "log_model_step")
+load(file = "log_model_step")
 summary(log_model_step)
-save(log_model_step,file = "log_model_step.txt")
 
-#sig_var <- c("prob_o","pf_o_sha","gender","met_o","exercise","exphappy","yoga","attr1_1","pf_o_sin","art","gaming","intel2_1","attr2_1","clubbing","dining","intel3_1","fun_o","movies","tv")
-
-sig_var <- c("prob_o","pf_o_sha","gender1","race2","pf_o_sin","attr1_1","exphappy","met_o","sports","race_o4","career_cPolitics","field_cdBusiness","gaming","dining","art","movies","attr_o")
+sig_var <- c("prob_o","pf_o_sha","gender1","race2","pf_o_sin","attr1_1","exphappy","met_o","sports","race_o4","career_cPolitics","career_cUndecided","yoga","field_cdBusiness","gaming","dining","art","movies","attr_o","race_o3","go_out1Month","career_cPsychologist","clubbing","goalToSayIDidIt","amb1_1","goalSRSRelationship","fun_o","career_cBankingConsulting")
 ```
 
 #1.2 Random forest on significant variables
@@ -239,92 +248,147 @@ sig_var_f
 
 #run the RANdom FORest on the SIGnificant VARiables
 set.seed(628)
-ran_for_sig_var <- randomForest(formula = sig_var_f, data = train_data_sdclean, importance=TRUE)
-
-plot(ran_for_sig_var)
-
-summary(ran_for_sig_var)
-
-varImpPlot(ran_for_sig_var,
-           sort = T,
-           main="Variable Importance")
-
-ran_for_sig_var_pred <- predict(ran_for_sig_var,test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
-
-#summary(ran_for_pred)
-#summary(test_label_sdclean)
-
-confusionMatrix(data=ran_for_sig_var_pred,reference=test_data_sdclean$match1)
-
+ranfor_alldata <- randomForest(formula = sig_var_f, data = train_data_sdclean, importance=TRUE)
+ranfor_bag <- randomForest(formula = sig_var_f, data = train_data_bag, importance=TRUE)
 ```
 
+#1.2.1 - Comparing random forest with all data -vs- bagged data
 
-#2. Run the models
+We first evaluated a random forest model using the significant variables and full cleaned dataset.  However, the random forest model provided results that were not statistically different than the No Information Rate.  Given that, we then "bagged" the training data, keeping all positive Match results and randomly sampling out the negative Match results until the total of positive and negative results were roughly equal.  This was done in hopes that the models would provide better predict positive results.
+
+```{r}
+#All Data error plot
+plot(ranfor_alldata)
+```
+
+```{r}
+#Bagged data error plot
+plot(ranfor_bag)
+```
+
+```{r}
+#All Data variable importance
+varImpPlot(ranfor_alldata,
+           sort = T,
+           main="Variable Importance")
+```
+
+```{r}
+#Bagged data variable importance
+varImpPlot(ranfor_bag,
+           sort = T,
+           main="Variable Importance")
+```
+
+```{r}
+#Run prediction of random forest model using significant predictor variables and full data set
+ranfor_alldata_pred <- predict(ranfor_alldata,test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")}
+confusionMatrix(data=ranfor_alldata_pred,reference=test_label_sdclean)
+```
+
+```{r}
+#Run prediction of random forest model using significant predictor variables and bagged data set
+ranfor_bag_pred <- predict(ranfor_bag,test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")}
+confusionMatrix(data=ranfor_bag_pred,reference=test_label_sdclean)
+```
+
+Bagging the data dropped the model accuracy from 0.838 to 0.665, and raised the kappa from 0.209 to 0.282.  Hard to brag about these results...
+
+#2. Create models with bagged data
 ```{r}
 #Log model
 set.seed(628)
-train_data_sdclean$match2 <- train_data_sdclean$match1 - 1
-log_f <- sig_var %>% 
-    {paste(.[! . %in% "match1"], collapse = " + ")} %>% 
-    paste("match2 ~ ", .) %>% 
-    as.formula()
-log_model <- glm(formula = log_f, data = train_data_sdclean, family = binomial)
+log_model <- glm(formula = sig_var_f, data = train_data_bag, family = binomial)
 
 #Develop KNN Models
 set.seed(628)
-knn_pred_21<-knn(train=train_data_sdclean, test=test_data_sdclean, cl=train_label_sdclean, k=21)
+knn_pred_21<-knn(train=train_data_bag_noResp, test=test_data_sdclean_noResp, cl=train_label_bag, k=21)
 set.seed(628)
-knn_pred_7<-knn(train=train_data_sdclean, test=test_data_sdclean, cl=train_label_sdclean, k=7)
+knn_pred_7<-knn(train=train_data_bag_noResp, test=test_data_sdclean_noResp, cl=train_label_bag, k=7)
 
 #develop SVM models
 set.seed(628)
 library(e1071)
-svm_model_lin <- svm(formula = sig_var_f, data = train_data_sdclean, kernel = "linear")
+svm_model_lin <- svm(formula = sig_var_f, data = train_data_bag, kernel = "linear")
 
 set.seed(628)
-svm_model_rad <- svm(formula = sig_var_f, data = train_data_sdclean, kernel = "radial")
+svm_model_rad <- svm(formula = sig_var_f, data = train_data_bag, kernel = "radial")
 
 #develop random forest model
 set.seed(628)
-random_forest_model <- randomForest(formula = sig_var_f, data = train_data_sdclean)
+random_forest_model <- randomForest(formula = sig_var_f, data = train_data_bag)
 
 #develop ctree model
 set.seed(628)
 library(partykit)
-ctree_model <- ctree(formula = sig_var_f, data = train_data_sdclean, control = ctree_control(mincriterion = .90))
+ctree_model <- ctree(formula = sig_var_f, data = train_data_bag, control = ctree_control(mincriterion = .90))
 
 #develop boosted tree
 #C5.0 needs response as a factor
-train_data_sdclean$match1 <- as.factor(train_data_sdclean$match1)
-boosted_tree_model <- C5.0(formula = sig_var_f, data = train_data_sdclean, trials = 100)
-train_data_sdclean$match1 <- as.numeric(train_data_sdclean$match1)
+train_data_bag$match1 <- as.factor(train_data_bag$match1)
+boosted_tree_model <- C5.0(formula = sig_var_f, data = train_data_bag, trials = 100)
+train_data_bag$match1 <- as.numeric(train_data_bag$match1) -1
 
-#develop ANN model
-library(neuralnet)
-set.seed(628)
+#develop ANN model - NOPE!  Always blew up.
+#library(neuralnet)
+#set.seed(628)
 #ANN_model <- neuralnet(formula = sig_var_f, data = train_data_sdclean, lifesign = "full", hidden = 20)
 
 
 ```
 
 #3. Make Predictions from Test Data
+
+#3.1 Logistic Prediction
 ```{r}
 log_pred <- predict(log_model, test_data_sdclean, type = "response") %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+confusionMatrix(data=log_pred,reference=test_label_sdclean)
 
+k_log_pred <- Kappa(table(log_pred, test_label_sdclean))
+
+```
+#3.2 kNN (21) Prediction
+```{r}
+k_kNN_21 <- Kappa(table(knn_pred_21, test_label_sdclean))
+confusionMatrix(data=knn_pred_21,reference=test_label_sdclean)
+```
+#3.3 kNN (7) Prediction
+```{r}
+k_kNN_7 <- Kappa(table(knn_pred_7, test_label_sdclean))
+confusionMatrix(data=knn_pred_7,reference=test_label_sdclean)
+```
+#3.4 SVM (cartesian) Prediction
+```{r}
 svm_pred_lin <- predict(svm_model_lin, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
-
+k_SVM_lin <- Kappa(table(svm_pred_lin, test_label_sdclean))
+confusionMatrix(data=svm_pred_lin,reference=test_label_sdclean)
+```
+#3.5 SVM (polar) Prediction
+```{r}
 svm_pred_rad <- predict(svm_model_rad, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
-
-
+k_SVM_rad <- Kappa(table(svm_pred_rad, test_label_sdclean))
+confusionMatrix(data=svm_pred_rad,reference=test_label_sdclean)
+```
+#3.6 Random Forest Prediction
+```{r}
+#re-ran this model just for the sake of order and completeness
 ran_for_pred <- predict(random_forest_model, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+k_ranfor_pred <- Kappa(table(ran_for_pred, test_label_sdclean))
+confusionMatrix(data=ran_for_pred,reference=test_label_sdclean)
 
+```
+#3.7 Classification Tree Prediction
+```{r}
 ctree_pred <- predict(ctree_model, test_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
-
+k_ctree_pred <- Kappa(table(ctree_pred, test_label_sdclean))
+confusionMatrix(data=ctree_pred,reference=test_label_sdclean)
+```
+#3.8 Boosted Tree Prediction
+```{r}
 boosted_tree_pred <- predict(boosted_tree_model, test_data_sdclean)
-
-#ann_pred <- predict(ANN_model, test_data_sdclean)
-
-
+boosted_tree_pred <- as.numeric(boosted_tree_pred) - 1
+k_boosted_pred <- Kappa(table(boosted_tree_pred, test_label_sdclean))
+confusionMatrix(data=boosted_tree_pred,reference=test_label_sdclean)
 ```
 
 #4. Determine accuracy
@@ -356,64 +420,70 @@ acc_mat <- data.frame(ModelName = names, accuracy = acc_predictions) %>% print
 dotchart(acc_predictions, labels = names, main = "Accuracy of the models", xlab = "Accuracy")
 ```
 
+```{r}
+model_kappas <- c(k_log_pred$Unweighted[1], k_kNN_21$Unweighted[1], k_kNN_7$Unweighted[1], k_SVM_lin$Unweighted[1], k_SVM_rad$Unweighted[1], k_ranfor_pred$Unweighted[1], k_ctree_pred$Unweighted[1], k_boosted_pred$Unweighted[1])
 
-#7. Create Ensemble Model
+kappa_table <- data.frame(ModelName = names, kappas = model_kappas) %>% print
+
+```
+```{r}
+dotchart(model_kappas, labels = names, main = "Model kappas", xlab = "Kappa")
+```
+
+#5. Create Ensemble Model
+
+Given the low accuracy and kappa of the kNN models these have been dropped from the ensemble model.
 
 ```{r}
-
-# Convert all of the feature data to factors....
-ConvertToYesNo <- function(myprediction) {
-  result <- myprediction %>% as.factor()
-  levels(result) <- c("no", "yes")
-  result
-}
 
 library(magrittr)
 library(dplyr)
 
 # Convert each set of predictions to factors
-log_pred %<>% ConvertToYesNo()
-knn_pred_21 %<>% ConvertToYesNo()
-knn_pred_7 %<>% ConvertToYesNo()
-svm_pred_lin %<>% ConvertToYesNo()
-svm_pred_rad %<>% ConvertToYesNo()
-ran_for_pred %<>% ConvertToYesNo()
-ctree_pred %<>% ConvertToYesNo()
-boosted_tree_pred %<>% ConvertToYesNo()
+log_pred <- as.factor(log_pred)
+#knn_pred_21 <- as.factor(knn_pred_21)
+#knn_pred_7 <- as.factor(knn_pred_7)
+svm_pred_lin <- as.factor(svm_pred_lin)
+svm_pred_rad <- as.factor(svm_pred_rad)
+ran_for_pred <- as.factor(ran_for_pred)
+ctree_pred <- as.factor(ctree_pred)
+boosted_tree_pred <- as.factor(boosted_tree_pred)
 
-stacked_data <-data.frame(log_pred,knn_pred_21,knn_pred_7,svm_pred_lin,svm_pred_rad,ran_for_pred,ctree_pred,boosted_tree_pred) %>% as.tbl()
+stacked_data_test <-data.frame(log_pred,svm_pred_lin,svm_pred_rad,ran_for_pred,ctree_pred,boosted_tree_pred) %>% as.tbl()
 
-summary(model_combined_results)
+summary(stacked_data_test)
 
-#generate predictions on train data
-log_pred_train <- predict(log_model, train_data_sdclean, type = "response") %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+#generate predictions on train bag data
+log_pred_train <- predict(log_model, train_data_bag, type = "response") %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-svm_pred_lin_train <- predict(svm_model_lin, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+svm_pred_lin_train <- predict(svm_model_lin, train_data_bag) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-svm_pred_rad_train <- predict(svm_model_rad, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+svm_pred_rad_train <- predict(svm_model_rad, train_data_bag) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-knn_pred_21_train <-knn(train=test_data_sdclean, test=train_data_sdclean, cl=test_label_sdclean, k=21)
+#knn_pred_21_train <-knn(train=train_data_bag_noResp, test=train_data_bag_noResp, cl=train_label_bag, k=21) %>% as.numeric() %>% -1
 
-knn_pred_7_train <-knn(train=test_data_sdclean, test=train_data_sdclean, cl=test_label_sdclean, k=7)
+#knn_pred_7_train <-knn(train=train_data_bag_noResp, test=train_data_bag_noResp, cl=train_label_bag, k=7) %>% as.numeric() %>% -1
 
-ran_for_pred_train <- predict(random_forest_model, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+ran_for_pred_train <- predict(random_forest_model, train_data_bag) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-ctree_pred_train <- predict(ctree_model, train_data_sdclean) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
+ctree_pred_train <- predict(ctree_model, train_data_bag) %>% {ifelse(. > 0.5, "1", "0")} %>% as.numeric()
 
-boosted_tree_pred_train <- predict(boosted_tree_model, train_data_sdclean)
+boosted_tree_pred_train <- predict(boosted_tree_model, train_data_bag) %>% as.numeric() %>% -1
 
-model_combined_results <- data.frame(log_pred_train, svm_pred_lin_train, knn_pred_21_train, knn_pred_7_train, svm_pred_rad_train, ran_for_pred_train, ctree_pred_train, boosted_tree_pred_train) %>% as.tbl()
+stacked_data_train <- data.frame(log_pred_train, svm_pred_lin_train, svm_pred_rad_train, ran_for_pred_train, ctree_pred_train, boosted_tree_pred_train) %>% as.tbl() 
+
+summary(stacked_data_train)
 
 # Create the model -> Stacking with a Ctree to find out if it helps any!
 library(partykit)
 
-names(model_combined_results) <- names(stacked_data)
-
-stacked_model <- ctree(train_data_sdclean$match1 ~ ., data = model_combined_results) %T>% plot
-#, controls = ctree_control(mincriterion = 0.99999)
-
-ensemble_pred <- prediction(stacked_model,stacked_train_results)
+stacked_model <- ctree(train_label_bag ~ ., data = stacked_data_train)
+plot(stacked_model)
 
 ```
+
+
+#6.  Summary
+Unfortunately, it appears this data has little predictive value.  The best Kappa obtained for this data was 0.282 with an Accuracy of 0.665.  However, the No Information Rate is 0.822, meaning that OkMatch is better off predicting that no one will be matched together than they will be in using our model.
 
 
